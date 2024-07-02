@@ -210,7 +210,7 @@ sensor:
               float current_energy_value = id(energy).state;
               id(total_energy) += current_energy_value - previous_energy_value;
               previous_energy_value = current_energy_value;
-              id(energy_total_sensor).update();
+              id(total_energy_sensor).update();
       internal: true
 
     # Shows the TOTAL/Lifetime Energy kWh used by the device, may reset to zero upon firmware updates
