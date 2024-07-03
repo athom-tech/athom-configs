@@ -11,7 +11,7 @@ substitutions:
   light4_restore_mode: RESTORE_DEFAULT_OFF
   device_description: "4 Gang Switch"
   project_name: "Athom Technology.4 Gang Switch"
-  project_version: "1.1.1"
+  project_version: "1.1.2"
 
 esphome:
   min_version: 2024.6.0
