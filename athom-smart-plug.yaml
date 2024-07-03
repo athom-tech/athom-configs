@@ -13,7 +13,7 @@ substitutions:
   hide_energy_sensor: "true"  
   device_description: "Athom Smart Plug"
   project_name: "Athom Technology.Smart Plug"
-  project_version: "1.0.1"
+  project_version: "1.0.2"
 
 esphome:
   min_version: 2024.6.0
