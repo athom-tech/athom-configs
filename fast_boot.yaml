@@ -1,0 +1,52 @@
+esphome:
+  on_boot:
+    then:
+      - script.execute: fast_boot_script
+
+globals:
+  - id: fast_boot
+    type: int
+    restore_value: yes
+    initial_value: '0'
+
+script:
+  - id: fast_boot_script
+    then:
+      - if:
+          condition:
+            lambda: return ( id(fast_boot) >= 3 );
+          then:
+            - lambda: |-
+                ESP_LOGD("fast boot factory reset", "Now the counter is greater than or equal to 3, perform factory reset on device and reboot");
+                id(fast_boot) = 0;
+                fast_boot->loop();
+                global_preferences->sync();
+            - light.turn_on: Status_led
+            - delay: 0.2s
+            - light.turn_off: Status_led
+            - delay: 0.2s
+            - light.turn_on: Status_led
+            - delay: 0.2s
+            - light.turn_off: Status_led
+            - delay: 0.2s
+            - light.turn_on: Status_led
+            - delay: 0.2s
+            - light.turn_off: Status_led
+            - delay: 0.2s
+            - light.turn_on: Status_led
+            - delay: 0.2s
+            - light.turn_off: Status_led
+            - delay: 0.2s
+            - delay: 5s
+            - button.press: Reset
+      - lambda: |-
+          id(fast_boot) += 1;
+          fast_boot->loop();
+          global_preferences->sync();
+          ESP_LOGD("fast boot factory reset", "Now the counter is %d.  Factory reset the device when the counter is greater than or equal to 3", id(fast_boot));
+      - delay: 10s
+      - lambda: |-
+          ESP_LOGD("fast boot factory reset", "Reseting counter");
+          id(fast_boot) = 0;
+          fast_boot->loop();
+          global_preferences->sync();
