@@ -7,7 +7,7 @@ substitutions:
   room: ""
   device_description: "mmWave Radar Human Presence Sensor"
   project_name: "Athom Technology.Presence Sensor"
-  project_version: "1.0.1"
+  project_version: "1.0.2"
 
 esphome:
   min_version: 2024.6.0
