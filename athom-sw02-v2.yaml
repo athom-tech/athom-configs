@@ -9,7 +9,7 @@ substitutions:
   light2_restore_mode: RESTORE_DEFAULT_OFF
   device_description: "2 Gang Switch V2"
   project_name: "Athom Technology.2 Gang Switch V2"
-  project_version: "1.1.1"
+  project_version: "1.1.2"
 
 esphome:
   min_version: 2024.6.0
