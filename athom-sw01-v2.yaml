@@ -1,51 +1,28 @@
 substitutions:
-  device_name: "athom-1gang-switch-v2"
+  # Can only contain lowercase a-z, 0-9 and hyphens. Can be at most 24 characters long.
+  name: "athom-1gang-switch-v2"
+  # This is the friendly name that can also contain uppercase letters, spaces and other characters.
+  friendly_name: "1 Gang Switch V2"
+  # Allows ESP device to be automatically lined to an 'Area' in Home Assistant. Typically used for areas such as 'Lounge Room', 'Kitchen' etc
+  room: ""
+  light_restore_mode: RESTORE_DEFAULT_OFF
+  device_description: "1 Gang Switch V2"
   project_name: "Athom Technology.1 Gang Switch V2"
   project_version: "1.1.1"
-  light_restore_mode: RESTORE_DEFAULT_OFF
 
 esphome:
-  name: "${device_name}"
-  friendly_name: ""
-  name_add_mac_suffix: true
   min_version: 2024.6.0
-  project:
-    name: "${project_name}"
-    version: "${project_version}"
-
-esp8266:
-  board: esp8285
-  restore_from_flash: true
-
-preferences:
-  flash_write_interval: 1min
-
-api:
-
-ota:
-  - platform: esphome
 
 logger:
   baud_rate: 0
 
-mdns:
-  disabled: false
-
-web_server:
-  port: 80
-
-wifi:
-  ap: {} # This spawns an AP with the device name and mac address with no password.
-
-captive_portal:
-
 dashboard_import:
   package_import_url: github://athom-tech/athom-configs/athom-sw01-v2.yaml
 
-binary_sensor:
-  - platform: status
-    name: "Status"
+packages:
+  base_package: github://athom-tech/athom-configs/base.yaml
 
+binary_sensor:
   # Touch Button
   - platform: gpio
     pin:
@@ -67,38 +44,10 @@ binary_sensor:
         then:
           - button.press: Reset
 
-sensor:
-  - platform: uptime
-    name: "Uptime Sensor"
-
-  - platform: wifi_signal
-    name: "${friendly_name} WiFi Signal"
-    update_interval: 60s
-
-button:
-  - platform: factory_reset
-    name: "Reset"
-    id: Reset
-
-  - platform: safe_mode
-    name: "Safe Mode"
-    internal: false
-
-output:
-  # Relay
-  - platform: gpio
-    pin: GPIO13
-    id: relay1
-
-  # Button LED (1.0 = Blue / 0.0 = Red)
-  - platform: esp8266_pwm
-    pin: GPIO16
-    inverted: true
-    id: button_led1
-
 light:
   - platform: status_led
     name: "Status LED"
+    id: Status_led
     disabled_by_default: true
     pin:
       number: GPIO0
@@ -123,15 +72,14 @@ light:
     output: button_led1
     default_transition_length: 500ms
 
-text_sensor:
-  - platform: wifi_info
-    ip_address:
-      name: "IP Address"
-    ssid:
-      name: "Connected SSID"
-    mac_address:
-      name: "Mac Address"
+output:
+  # Relay
+  - platform: gpio
+    pin: GPIO13
+    id: relay1
 
-time:
-  - platform: sntp
-    id: sntp_time
+  # Button LED (1.0 = Blue / 0.0 = Red)
+  - platform: esp8266_pwm
+    pin: GPIO16
+    inverted: true
+    id: button_led1
