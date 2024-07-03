@@ -1,53 +1,25 @@
 substitutions:
-  device_name: "athom-garage-door"
+  # Can only contain lowercase a-z, 0-9 and hyphens. Can be at most 24 characters long.
+  name: "athom-garage-door"
+  # This is the friendly name that can also contain uppercase letters, spaces and other characters.
+  friendly_name: "Garage Door Opener"
+  # Allows ESP device to be automatically lined to an 'Area' in Home Assistant. Typically used for areas such as 'Lounge Room', 'Kitchen' etc
+  room: ""
+  device_description: "Garage Door Opener"
   project_name: "Athom Technology.Garage Door Opener"
   project_version: "1.2.1"
 
 esphome:
-  name: "${device_name}"
-  friendly_name: ""
-  name_add_mac_suffix: true
   min_version: 2024.6.0
-  project:
-    name: "${project_name}"
-    version: "${project_version}"
-
-esp8266:
-  board: esp8285
-
-api:
-
-ota:
-  - platform: esphome
-
-logger:
-
-mdns:
-  disabled: false
-
-web_server:
-  port: 80
-
-wifi:
-  ap: {} # This spawns an AP with the device name and mac address with no password.
-
-captive_portal:
 
 dashboard_import:
   package_import_url: github://athom-tech/athom-configs/athom-garage-door.yaml
 
-sensor:
-  - platform: uptime
-    name: "Uptime Sensor"
-
-  - platform: wifi_signal
-    name: "${friendly_name} WiFi Signal"
-    update_interval: 60s
+packages:
+  base_package: github://athom-tech/athom-configs/base.yaml
+  fast_boot_package: github://athom-tech/athom-configs/fast_boot.yaml
 
 binary_sensor:
-  - platform: status
-    name: "Status"
-
   - platform: gpio
     name: "Contact"
     disabled_by_default: true
@@ -77,34 +49,6 @@ binary_sensor:
         then:
           - button.press: Reset
 
-button:
-  - platform: factory_reset
-    name: "Reset"
-    id: Reset
-
-  - platform: safe_mode
-    name: "Safe Mode"
-    internal: false
-
-switch:
-  - platform: gpio
-    pin: GPIO5
-    name: "Relay"
-    id: relay
-    disabled_by_default: true
-    on_turn_on:
-      - light.turn_on: wifi_led
-      - delay: 1s
-      - switch.turn_off: relay
-      - light.turn_off: wifi_led
-
-light:
-  - platform: status_led
-    name: "Status LED"
-    id: wifi_led
-    disabled_by_default: true
-    pin: GPIO12
-
 cover:
   - platform: template
     device_class: garage
@@ -116,7 +60,7 @@ cover:
           condition:
             lambda: 'return !id(contact).state;'
           then:
-              - switch.turn_on: relay
+            - switch.turn_on: relay
     stop_action:
       - switch.turn_on: relay
     close_action:
@@ -127,15 +71,21 @@ cover:
           then:
             - switch.turn_on: relay
 
-text_sensor:
-  - platform: wifi_info
-    ip_address:
-      name: "IP Address"
-    ssid:
-      name: "Connected SSID"
-    mac_address:
-      name: "Mac Address"
+light:
+  - platform: status_led
+    name: "Status LED"
+    id: Status_led
+    disabled_by_default: true
+    pin: GPIO12
 
-time:
-  - platform: sntp
-    id: sntp_time
+switch:
+  - platform: gpio
+    pin: GPIO5
+    name: "Relay"
+    id: relay
+    disabled_by_default: true
+    on_turn_on:
+      - light.turn_on: Status_led
+      - delay: 1s
+      - switch.turn_off: relay
+      - light.turn_off: Status_led
