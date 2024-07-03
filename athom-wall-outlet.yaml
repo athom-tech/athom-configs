@@ -9,7 +9,7 @@ substitutions:
   sensor_update_interval: "10s"
   device_description: "Wall Outlet"
   project_name: "Athom Technology.Wall Outlet"
-  project_version: "1.1.1"
+  project_version: "1.1.2"
 
 esphome:
   min_version: 2024.6.0
