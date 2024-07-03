@@ -8,7 +8,7 @@ substitutions:
   relay_restore_mode: RESTORE_DEFAULT_OFF
   device_description: "Mini Relay Switch Module"
   project_name: "Athom Technology.Mini Relay Switch Module"
-  project_version: "1.1.1"
+  project_version: "1.1.2"
 
 esphome:
   min_version: 2024.6.0
