@@ -1,54 +1,31 @@
 substitutions:
-  device_name: "athom-4gang-switch"
-  project_name: "Athom Technology.4 Gang Switch"
-  project_version: "1.1.1"
+  # Can only contain lowercase a-z, 0-9 and hyphens. Can be at most 24 characters long.
+  name: "athom-4gang-switch"
+  # This is the friendly name that can also contain uppercase letters, spaces and other characters.
+  friendly_name: "4 Gang Switch"
+  # Allows ESP device to be automatically lined to an 'Area' in Home Assistant. Typically used for areas such as 'Lounge Room', 'Kitchen' etc
+  room: ""
   light1_restore_mode: RESTORE_DEFAULT_OFF
   light2_restore_mode: RESTORE_DEFAULT_OFF
   light3_restore_mode: RESTORE_DEFAULT_OFF
   light4_restore_mode: RESTORE_DEFAULT_OFF
+  device_description: "4 Gang Switch"
+  project_name: "Athom Technology.4 Gang Switch"
+  project_version: "1.1.1"
 
 esphome:
-  name: "${device_name}"
-  friendly_name: ""
-  name_add_mac_suffix: true
   min_version: 2024.6.0
-  project:
-    name: "${project_name}"
-    version: "${project_version}"
-
-esp8266:
-  board: esp8285
-  restore_from_flash: true
-
-preferences:
-  flash_write_interval: 1min
-
-api:
-
-ota:
-  - platform: esphome
 
 logger:
   baud_rate: 0
 
-mdns:
-  disabled: false
-
-web_server:
-  port: 80
-
-wifi:
-  ap: {} # This spawns an AP with the device name and mac address with no password.
-
-captive_portal:
-
 dashboard_import:
   package_import_url: github://athom-tech/athom-configs/athom-sw04.yaml
 
-binary_sensor:
-  - platform: status
-    name: "Status"
+packages:
+  base_package: github://athom-tech/athom-configs/base.yaml
 
+binary_sensor:
   # Touch Buttons
   - platform: gpio
     pin:
@@ -100,41 +77,10 @@ binary_sensor:
       then:
         - light.toggle: light4
 
-sensor:
-  - platform: uptime
-    name: "Uptime Sensor"
-
-  - platform: wifi_signal
-    name: "${friendly_name} WiFi Signal"
-    update_interval: 60s
-
-button:
-  - platform: factory_reset
-    name: "Reset"
-    id: Reset
-
-  - platform: safe_mode
-    name: "Safe Mode"
-    internal: false
-
-output:
-  # Relays
-  - platform: gpio
-    pin: GPIO13
-    id: relay1
-  - platform: gpio
-    pin: GPIO4
-    id: relay2
-  - platform: gpio
-    pin: GPIO15
-    id: relay3
-  - platform: gpio
-    pin: GPIO14
-    id: relay4
-
 light:
   - platform: status_led
     name: "Status LED"
+    id: Status_led
     disabled_by_default: true
     pin:
       number: GPIO0
@@ -146,31 +92,39 @@ light:
     id: light1
     output: relay1
     restore_mode: ${light1_restore_mode}
+
   - platform: binary
     name: "Light2"
     id: light2
     output: relay2
     restore_mode: ${light2_restore_mode}
+
   - platform: binary
     name: "Light3"
     id: light3
     output: relay3
     restore_mode: ${light3_restore_mode}
+
   - platform: binary
     name: "Light4"
     id: light4
     output: relay4
     restore_mode: ${light4_restore_mode}
 
-text_sensor:
-  - platform: wifi_info
-    ip_address:
-      name: "IP Address"
-    ssid:
-      name: "Connected SSID"
-    mac_address:
-      name: "Mac Address"
+output:
+  # Relays
+  - platform: gpio
+    pin: GPIO13
+    id: relay1
 
-time:
-  - platform: sntp
-    id: sntp_time
+  - platform: gpio
+    pin: GPIO4
+    id: relay2
+
+  - platform: gpio
+    pin: GPIO15
+    id: relay3
+
+  - platform: gpio
+    pin: GPIO14
+    id: relay4
