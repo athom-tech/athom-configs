@@ -15,7 +15,7 @@ substitutions:
   relay8_restore_mode: RESTORE_DEFAULT_OFF
   device_description: "Relay Board X8"
   project_name: "Athom Technology.Relay-Board-X8"
-  project_version: "1.0.1"
+  project_version: "1.0.2"
 
 esphome:
   min_version: 2024.6.0
