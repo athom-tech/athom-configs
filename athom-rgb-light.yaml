@@ -1,51 +1,29 @@
 substitutions:
-  device_name: "athom-rgb-light"
+  # Can only contain lowercase a-z, 0-9 and hyphens. Can be at most 24 characters long
+  name: "athom-rgb-light"
+  # This is the friendly name that can also contain uppercase letters, spaces and other characters.
+  friendly_name: "RGB Light Strip Controller"
+  # Allows this device to be automatically lined to an 'Area' in Home Assistant. Typically used for areas such as 'Lounge Room', 'Kitchen' etc.
+  room: ""
+  light_restore_mode: RESTORE_DEFAULT_OFF
+  device_description: "RGB Light Strip Controller"
   project_name: "Athom Technology.RGB Light Strip Controller"
   project_version: "1.1.1"
-  light_restore_mode: RESTORE_DEFAULT_OFF
 
 esphome:
-  name: "${device_name}"
-  friendly_name: ""
-  name_add_mac_suffix: true
   min_version: 2024.6.0
-  project:
-    name: "${project_name}"
-    version: "${project_version}"
-
-esp8266:
-  board: esp8285
-  restore_from_flash: true
-
-preferences:
-  flash_write_interval: 1min
-
-api:
-
-ota:
-  - platform: esphome
 
 logger:
   baud_rate: 0
 
-mdns:
-  disabled: false
-
-web_server:
-  port: 80
-
-wifi:
-  ap: {} # This spawns an AP with the device name and mac address with no password.
-
-captive_portal:
-
 dashboard_import:
   package_import_url: github://athom-tech/athom-configs/athom-rgb-light.yaml
 
-binary_sensor:
-  - platform: status
-    name: "Status"
+packages:
+  base_package: github://athom-tech/athom-configs/base.yaml
+  fast_boot_package: github://athom-tech/athom-configs/fast_boot_light.yaml
 
+binary_sensor:
   - platform: gpio
     pin:
       number: 0
@@ -58,28 +36,20 @@ binary_sensor:
           - ON for at most 1s
           - OFF for at least 0.2s
         then:
-          - light.toggle: led
+          - light.toggle: Light
       - timing:
           - ON for at least 4s
         then:
           - button.press: Reset
 
-sensor:
-  - platform: uptime
-    name: "Uptime"
-
-  - platform: wifi_signal
-    name: "${friendly_name} WiFi Signal"
-    update_interval: 60s
-
-button:
-  - platform: factory_reset
-    name: "Reset"
-    id: Reset
-
-  - platform: safe_mode
-    name: "Safe Mode"
-    internal: false
+light:
+  - platform: rgb
+    name: "RGB Light Strip"
+    restore_mode: ${light_restore_mode}
+    red: red_output
+    green: green_output
+    blue: blue_output
+    id: Light
 
 output:
   - platform: esp8266_pwm
@@ -91,25 +61,3 @@ output:
   - platform: esp8266_pwm
     id: blue_output
     pin: GPIO14
-
-light:
-  - platform: rgb
-    name: "RGB Light Strip"
-    restore_mode: ${light_restore_mode}
-    red: red_output
-    green: green_output
-    blue: blue_output
-    id: led
-
-text_sensor:
-  - platform: wifi_info
-    ip_address:
-      name: "IP Address"
-    ssid:
-      name: "Connected SSID"
-    mac_address:
-      name: "Mac Address"
-     
-time:
-  - platform: sntp
-    id: sntp_time
