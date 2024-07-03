@@ -1,76 +1,39 @@
 substitutions:
-  device_name: "athom-rgbww-light"
-  project_name: "Athom Technology.RGBCW Bulb"
-  project_version: "1.1.1"
+  # Can only contain lowercase a-z, 0-9 and hyphens. Can be at most 24 characters long.
+  name: "athom-rgbww-light"
+  # This is the friendly name that can also contain uppercase letters, spaces and other characters.
+  friendly_name: "RGBCW Bulb"
+  # Allows ESP device to be automatically lined to an 'Area' in Home Assistant. Typically used for areas such as 'Lounge Room', 'Kitchen' etc
+  room: ""
   light_restore_mode: RESTORE_DEFAULT_ON
   color_interlock: 'true'
-
-globals:
-  - id: fast_boot
-    type: int
-    restore_value: yes
-    initial_value: '0'
+  device_description: "Athom RGBCW Bulb"
+  project_name: "Athom Technology.RGBCW Bulb"
+  project_version: "1.1.1"
 
 esphome:
-  name: "${device_name}"
-  friendly_name: ""
-  name_add_mac_suffix: true
   min_version: 2024.6.0
-  project:
-    name: "${project_name}"
-    version: "${project_version}"
-  on_boot:
-    then:
-      - script.execute: fast_boot_script
-
-esp8266:
-  board: esp8285
-  restore_from_flash: true
-
-preferences:
-  flash_write_interval: 1min
-
-api:
-
-ota:
-  - platform: esphome
-
-logger:
-
-mdns:
-  disabled: false
-
-web_server:
-  port: 80
-
-wifi:
-  ap: {} # This spawns an AP with the device name and mac address with no password.
-
-captive_portal:
 
 dashboard_import:
   package_import_url: github://athom-tech/athom-configs/athom-rgbww-light.yaml
 
-binary_sensor:
-  - platform: status
-    name: "Status"
+packages:
+  base_package: github://athom-tech/athom-configs/base.yaml
+  fast_boot_package: github://athom-tech/athom-configs/fast_boot_light.yaml
 
-sensor:
-  - platform: uptime
-    name: "Uptime Sensor"
-
-  - platform: wifi_signal
-    name: "${friendly_name} WiFi Signal"
-    update_interval: 60s
-
-button:
-  - platform: factory_reset
-    name: "Reset"
-    id: Reset
-
-  - platform: safe_mode
-    name: "Safe Mode"
-    internal: false
+light:
+  - platform: rgbww
+    id: Light
+    name: "RGBCW_Bulb"
+    restore_mode: ${light_restore_mode}
+    red: red_output
+    green: green_output
+    blue: blue_output
+    warm_white: warm_white_output
+    cold_white: white_output
+    cold_white_color_temperature: 6000 K
+    warm_white_color_temperature: 3000 K
+    color_interlock: ${color_interlock}
 
 output:
   - platform: esp8266_pwm
@@ -98,62 +61,3 @@ output:
     pin: GPIO5
     min_power: 0.000499
     max_power: 1
-
-light:
-  - platform: rgbww
-    id: rgbww_light
-    name: "RGBCW_Bulb"
-    restore_mode: ${light_restore_mode}
-    red: red_output
-    green: green_output
-    blue: blue_output
-    warm_white: warm_white_output
-    cold_white: white_output
-    cold_white_color_temperature: 6000 K
-    warm_white_color_temperature: 3000 K
-    color_interlock: ${color_interlock}
-
-text_sensor:
-  - platform: wifi_info
-    ip_address:
-      name: "IP Address"
-    ssid:
-      name: "Connected SSID"
-    mac_address:
-      name: "Mac Address"
-     
-time:
-  - platform: sntp
-    id: sntp_time
-
-script:
-  - id: fast_boot_script
-    then:
-      - if:
-          condition:
-            lambda: return ( id(fast_boot) >= 3 );
-          then:
-            - lambda: |-
-                ESP_LOGD("athom-rgbww-light.yaml", "Now the counter is greater than or equal to 3, perform reset device and reboot");
-                id(fast_boot) = 0;
-                fast_boot->loop();
-                global_preferences->sync();
-                auto call = id(rgbww_light).turn_on();
-                call.set_transition_length(500);
-                call.set_brightness(1.0);
-                call.set_color_mode(ColorMode::RGB);
-                call.set_rgb(0.0, 0.0, 1.0);
-                call.perform();
-            - delay: 5s
-            - button.press: Reset
-      - lambda: |-
-          id(fast_boot) += 1;
-          fast_boot->loop();
-          global_preferences->sync();
-          ESP_LOGD("athom-rgbww-light.yaml", "Now the counter is %d.  Reset the device when the counter is greater than or equal to 3", id(fast_boot));
-      - delay: 10s
-      - lambda: |-
-          ESP_LOGD("athom-rgbww-light.yaml", "Reset counter");
-          id(fast_boot) = 0;
-          fast_boot->loop();
-          global_preferences->sync();
