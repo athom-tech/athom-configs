@@ -1,56 +1,23 @@
 substitutions:
+  # Can only contain lowercase a-z, 0-9 and hyphens. Can be at most 24 characters long
   name: "athom-presence-sensor"
-  friendly_name: "presence sensor"
+  # This is the friendly name that can also contain uppercase letters, spaces and other characters.
+  friendly_name: "Presence Sensor"
+  # Allows this device to be automatically lined to an 'Area' in Home Assistant. Typically used for areas such as 'Lounge Room', 'Kitchen' etc.
   room: ""
-  device_description: "mmwave radar human presence sensor"
+  device_description: "mmWave Radar Human Presence Sensor"
   project_name: "Athom Technology.Presence Sensor"
   project_version: "1.0.1"
 
 esphome:
-  name: "${name}"
-  friendly_name: "${friendly_name}"
-  name_add_mac_suffix: true
   min_version: 2024.6.0
-  project:
-    name: "${project_name}"
-    version: "${project_version}"
-
-esp8266:
-  board: esp8285
-  restore_from_flash: true
-
-preferences:
-  flash_write_interval: 1min
-
-# Enable logging
-logger:
-
-api:
-
-ota:
-  - platform: esphome
-
-mdns:
-  disabled: false
-
-web_server:
-  port: 80
-
-wifi:
-  ap: {}
-
-captive_portal:
 
 dashboard_import:
   package_import_url: github://athom-tech/athom-configs/athom-presence-sensor.yaml
 
-light:
-  - platform: status_led
-    name: "Status LED"
-    id: led
-    pin: GPIO16
-    disabled_by_default: true
-    entity_category: config
+packages:
+  base_package: github://athom-tech/athom-configs/base.yaml
+  fast_boot_package: github://athom-tech/athom-configs/fast_boot.yaml
 
 i2c:
   sda: GPIO4
@@ -61,18 +28,8 @@ uart:
   tx_pin: GPIO15
   rx_pin: GPIO13
   baud_rate: 115200
-  # debug:
-  #   direction: BOTH
-  #   dummy_receiver: true
-  #   after:
-  #     delimiter: "\n"
-  #   sequence:
-  #     - lambda: UARTDebug::log_string(direction, bytes);
 
 binary_sensor:
-  - platform: status
-    name: "Status"
-
   - platform: gpio
     pin:
       number: GPIO0
@@ -100,7 +57,7 @@ binary_sensor:
     device_class: motion
     on_press:
       then:
-        - light.turn_on: led
+        - light.turn_on: Status_led
 
   - platform: gpio
     pin:
@@ -115,7 +72,7 @@ binary_sensor:
     device_class: motion
     on_release:
       then:
-        - light.turn_off: led
+        - light.turn_off: Status_led
 
   - platform: template
     name: "Occupancy"
@@ -132,31 +89,53 @@ binary_sensor:
         return id(occupancy).state;
       }
 
-sensor:
-  - platform: uptime
-    name: "Uptime Sensor"
-
-  - platform: wifi_signal
-    name: "WiFi Signal Sensor"
-    update_interval: 60s
-
-  - platform: bh1750
-    name: "Light Sensor"
-    address: 0x23
-    update_interval: 5s
-
-switch:
-  - platform: template
-    name: "mmWave Status"
-    id: "mmwave_sensor"
+button:
+  - platform: factory_reset
+    id: !extend Reset
+    name: Reset
     internal: true
+
+  - platform: template
+    name: Factory Reset
+    id: factory_reset_device
     entity_category: config
-    optimistic: true
-    restore_mode: DISABLED
-    turn_on_action:
-      - uart.write: "sensorStart\r\n"
-    turn_off_action:
-      - uart.write: "sensorStop\r\n"
+    on_press:
+      - switch.turn_off: mmwave_sensor
+      - delay: 500ms
+      - uart.write: "resetCfg\r\n"
+      - delay: 1s
+      - switch.turn_on: mmwave_sensor
+      - button.press: Reset
+
+  - platform: restart
+    id: !extend Restart
+    name: Restart
+    internal: true
+
+  - platform: template
+    name: Restart Device
+    id: restart_device
+    entity_category: config
+    on_press:
+      - button.press: restart_mmwave
+      - delay: 1s
+      - button.press: Restart
+
+  - platform: template
+    name: Restart_mmWave
+    id: restart_mmwave
+    entity_category: config
+    internal: true
+    on_press:
+      - uart.write: "resetSystem\r\n"
+
+light:
+  - platform: status_led
+    name: "Status LED"
+    id: Status_led
+    pin: GPIO16
+    disabled_by_default: true
+    entity_category: config
 
 number:
   - platform: template
@@ -203,7 +182,6 @@ number:
       - uart.write: "saveConfig\r\n"
       - delay: 500ms
       - switch.turn_on: mmwave_sensor
-
 
   - platform: template
     name: Trigger Sensitivity     #Value range: 0 ~ 9   Default Maintain sensitivity: 7    Default Trigger sensitivity: 5
@@ -296,54 +274,21 @@ number:
       - delay: 500ms
       - switch.turn_on: mmwave_sensor
 
-button:
-  - platform: factory_reset
-    name: Restart with Factory Default Settings
-    id: Reset
-    entity_category: config
-    internal: true
+sensor:
+  - platform: bh1750
+    name: "Light Sensor"
+    address: 0x23
+    update_interval: 5s
+
+switch:
   - platform: template
-    name: "Reset device"
-    id: "factory_reset_device"
-    entity_category: config
-    on_press:
-      - switch.turn_off: mmwave_sensor
-      - delay: 500ms
-      - uart.write: "resetCfg\r\n"
-      - delay: 1s
-      - switch.turn_on: mmwave_sensor
-      - button.press: Reset
-
-  - platform: restart
-    name: Restart_esp
-    id: restart_esp
-    entity_category: config
+    name: "mmWave Status"
+    id: "mmwave_sensor"
     internal: true
-  - platform: template
-    name: "Restart_mmWave"
-    id: "restart_mmwave"
     entity_category: config
-    internal: true
-    on_press:
-      - uart.write: "resetSystem\r\n"
-
-  - platform: template
-    name: Restart device
-    entity_category: config
-    on_press:
-      - button.press: restart_mmwave
-      - delay: 1s
-      - button.press: restart_esp
-
-text_sensor:
-  - platform: wifi_info
-    ip_address:
-      name: "IP Address"
-    ssid:
-      name: "Connected SSID"
-    mac_address:
-      name: "Mac Address"
-
-time:
-  - platform: sntp
-    id: my_time
+    optimistic: true
+    restore_mode: DISABLED
+    turn_on_action:
+      - uart.write: "sensorStart\r\n"
+    turn_off_action:
+      - uart.write: "sensorStop\r\n"
