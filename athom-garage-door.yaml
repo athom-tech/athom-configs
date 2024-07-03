@@ -7,7 +7,7 @@ substitutions:
   room: ""
   device_description: "Garage Door Opener"
   project_name: "Athom Technology.Garage Door Opener"
-  project_version: "1.2.1"
+  project_version: "1.2.2"
 
 esphome:
   min_version: 2024.6.0
