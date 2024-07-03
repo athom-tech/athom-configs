@@ -1,82 +1,24 @@
 substitutions:
-  device_name: "athom-mini-switch"
+  # Can only contain lowercase a-z, 0-9 and hyphens. Can be at most 24 characters long.
+  name: "athom-mini-switch"
+  # This is the friendly name that can also contain uppercase letters, spaces and other characters.
+  friendly_name: "Mini Relay Switch Module"
+  # Allows ESP device to be automatically lined to an 'Area' in Home Assistant. Typically used for areas such as 'Lounge Room', 'Kitchen' etc
+  room: ""
+  relay_restore_mode: RESTORE_DEFAULT_OFF
+  device_description: "Mini Relay Switch Module"
   project_name: "Athom Technology.Mini Relay Switch Module"
   project_version: "1.1.1"
-  light_restore_mode: RESTORE_DEFAULT_OFF
 
 esphome:
-  name: "${device_name}"
-  friendly_name: ""
-  name_add_mac_suffix: true
   min_version: 2024.6.0
-  project:
-    name: "${project_name}"
-    version: "${project_version}"
-
-esp8266:
-  board: esp8285
-  restore_from_flash: true
-
-preferences:
-  flash_write_interval: 1min
-
-api:
-
-ota:
-  - platform: esphome
-
-logger:
-
-mdns:
-  disabled: false
-
-web_server:
-  port: 80
-
-wifi:
-  ap: {}
-
-captive_portal:
 
 dashboard_import:
   package_import_url: github://athom-tech/athom-configs/athom-mini-switch.yaml
 
-button:
-  - platform: factory_reset
-    name: "Reset"
-    id: Reset
-
-  - platform: safe_mode
-    name: "Safe Mode"
-    internal: false
-
-output:
-  - platform: gpio
-    id: relay_output
-    pin: GPIO13
-
-light:
-  - platform: status_led
-    id: led
-    name: "Blue LED"
-    disabled_by_default: true
-    pin:
-      number: GPIO4
-      inverted: true
-
-  - platform: binary
-    id: mini_relay
-    output: relay_output
-    name: "Mini Switch"
-    restore_mode: ${light_restore_mode}
-
-sensor:
-  - platform: uptime
-    name: "Uptime Sensor"
-
-  - platform: wifi_signal
-    name: "${friendly_name} WiFi Signal"
-    update_interval: 60s
+packages:
+  base_package: github://athom-tech/athom-configs/base.yaml
+  fast_boot_package: github://athom-tech/athom-configs/fast_boot.yaml
 
 binary_sensor:
   # Wired switch
@@ -89,7 +31,7 @@ binary_sensor:
       mode: INPUT_PULLUP
     on_state:
       - light.toggle: mini_relay
-      - light.toggle: led
+      - light.toggle: Status_led
     on_multi_click:
       - timing:
           - ON for at most 0.5s
@@ -117,24 +59,28 @@ binary_sensor:
           - OFF for at least 0.2s
         then:
           - light.toggle: mini_relay
-          - light.toggle: led
+          - light.toggle: Status_led
       - timing:
           - ON for at least 4s
         then:
           - button.press: Reset
 
-  - platform: status
-    name: "Status"
+light:
+  - platform: status_led
+    id: Status_led
+    name: "Status LED"
+    disabled_by_default: true
+    pin:
+      number: GPIO4
+      inverted: true
 
-text_sensor:
-  - platform: wifi_info
-    ip_address:
-      name: "IP Address"
-    ssid:
-      name: "Connected SSID"
-    mac_address:
-      name: "Mac Address"
+  - platform: binary
+    id: mini_relay
+    output: relay_output
+    name: "Mini Switch"
+    restore_mode: ${relay_restore_mode}
 
-time:
-  - platform: sntp
-    id: sntp_time
+output:
+  - platform: gpio
+    id: relay_output
+    pin: GPIO13
