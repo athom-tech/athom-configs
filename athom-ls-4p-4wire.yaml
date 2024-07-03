@@ -11,7 +11,7 @@ substitutions:
   led_chipset: WS2801
   device_description: "Addressable LED Strip Controller - 4 Wire"
   project_name: "Athom Technology.LS 4P 4Wire"
-  project_version: "1.1.1"
+  project_version: "1.1.2"
 
 esphome:
   min_version: 2024.6.0
