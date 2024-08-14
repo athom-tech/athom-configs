@@ -7,6 +7,7 @@ substitutions:
   project_name: "Athom Technology.Smart Plug V2"
   project_version: "2.0.4"
   relay_restore_mode: RESTORE_DEFAULT_OFF
+  hide_switch: "false"
   sensor_update_interval: 10s
   # Current Limit in Amps. AU Plug = 10. IL, BR, EU, UK, US Plug = 16.
   current_limit : "16"
@@ -206,6 +207,7 @@ switch:
     pin: GPIO12
     id: relay
     restore_mode: ${relay_restore_mode}
+    internal: "${hide_switch}"
 
 light:
   - platform: status_led
