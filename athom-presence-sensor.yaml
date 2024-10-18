@@ -1,15 +1,40 @@
 substitutions:
+  # Default name
   name: "athom-presence-sensor"
-  friendly_name: "presence sensor"
+  # Default friendly name
+  friendly_name: "Athom Presence Sensor"
+  # Allows ESP device to be automatically linked to an 'Area' in Home Assistant. Typically used for areas such as 'Lounge Room', 'Kitchen' etc
   room: ""
-  device_description: "mmwave radar human presence sensor"
-  project_name: "Athom Technology.Presence Sensor"
-  project_version: "1.0"
+  # Description as appears in ESPHome & top of webserver page
+  device_description: "athom mmwave radar human presence sensor"
+  # Project Name
+  project_name: "Athom Technology.Athom Presence Sensor"
+  # Projection version denotes the release version of the yaml file, allowing checking of deployed vs latest version
+  project_version: "v1.0.2"
+  # Define a domain for this device to use. i.e. iot.home.lan (so device will appear as athom-smart-plug-v2.iot.home.lan in DNS/DHCP logs)
+  dns_domain: ""
+  # Set timezone of the smart plug. Useful if the plug is in a location different to the HA server. Can be entered in unix Country/Area format (i.e. "Australia/Sydney")
+  timezone: ""
+  # Set the duration between the sntp service polling ntp.org servers for an update
+  sntp_update_interval: 6h
+  # Network time servers for your region, enter from lowest to highest priority. To use local servers update as per zones or countries at: https://www.ntppool.org/zone/@
+  sntp_server_1: "0.pool.ntp.org"
+  sntp_server_2: "1.pool.ntp.org"
+  sntp_server_3: "2.pool.ntp.org"
+  # Enables faster network connections, with last connected SSID being connected to and no full scan for SSID being undertaken
+  wifi_fast_connect: "false"
+  # Define logging level: NONE, ERROR, WARN, INFO, DEBUG (Default), VERBOSE, VERY_VERBOSE
+  log_level: "DEBUG"
+  # Enable or disable the use of IPv6 networking on the device
+  ipv6_enable: "false"
 
 esphome:
   name: "${name}"
   friendly_name: "${friendly_name}"
+  comment: "${device_description}"
+  area: "${room}"
   name_add_mac_suffix: true
+  min_version: 2024.6.0
   project:
     name: "${project_name}"
     version: "${project_version}"
@@ -21,12 +46,14 @@ esp8266:
 preferences:
   flash_write_interval: 1min
 
-# Enable logging
 logger:
+  level: ${log_level}
+  baud_rate: 115200
 
 api:
 
 ota:
+  - platform: esphome
 
 mdns:
   disabled: false
@@ -34,8 +61,16 @@ mdns:
 web_server:
   port: 80
 
+network:
+  enable_ipv6: ${ipv6_enable}
+
 wifi:
+  # This spawns an AP with the device name and mac address with no password.
   ap: {}
+  # Allow rapid re-connection to previously connect WiFi SSID, skipping scan of all SSID
+  fast_connect: "${wifi_fast_connect}"
+  # Define dns domain / suffix to add to hostname
+  domain: "${dns_domain}"
 
 captive_portal:
 
@@ -67,10 +102,10 @@ uart:
   #   sequence:
   #     - lambda: UARTDebug::log_string(direction, bytes);
 
-
 binary_sensor:
   - platform: status
     name: "Status"
+    entity_category: diagnostic
 
   - platform: gpio
     pin:
@@ -98,8 +133,11 @@ binary_sensor:
       - delayed_off: 10s
     device_class: motion
     on_press:
-      then:
-        - light.turn_on: led
+      if:
+        condition:
+          switch.is_on: presence_light
+        then:
+          - light.turn_on: led
 
   - platform: gpio
     pin:
@@ -115,7 +153,6 @@ binary_sensor:
     on_release:
       then:
         - light.turn_off: led
-
 
   - platform: template
     name: "Occupancy"
@@ -135,18 +172,30 @@ binary_sensor:
 sensor:
   - platform: uptime
     name: "Uptime Sensor"
-    id: "uptime_sensor"
+    id: uptime_sensor
+    entity_category: diagnostic
+    internal: true
 
   - platform: wifi_signal
-    name: "WiFi Signal Sensor"
+    name: "WiFi Signal dB"
+    id: wifi_signal_db
     update_interval: 60s
-    id: "wifi_signal_sensor"
+    entity_category: "diagnostic"
+
+  - platform: copy
+    source_id: wifi_signal_db
+    name: "WiFi Signal Percent"
+    filters:
+      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
+    unit_of_measurement: "Signal %"
+    entity_category: "diagnostic"
+    device_class: ""
 
   - platform: bh1750
     name: "Light Sensor"
+    id: light_sensor
     address: 0x23
     update_interval: 5s
-    id: "light_sensor"
 
 switch:
   - platform: template
@@ -161,7 +210,20 @@ switch:
     turn_off_action:
       - uart.write: "sensorStop\r\n"
 
-
+  - platform: template
+    name: Presence Light
+    id: presence_light
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      if:
+        condition:
+          binary_sensor.is_on: occupancy
+        then:
+          - light.turn_on: led
+    on_turn_off:
+      - light.turn_off: led
 
 number:
   - platform: template
@@ -186,7 +248,6 @@ number:
       - uart.write: "saveConfig\r\n"
       - delay: 500ms
       - switch.turn_on: mmwave_sensor
-
 
   - platform: template
     name: Maintain Sensitivity                 #Value range: 0 ~ 9   Default Maintain sensitivity: 7    Default Trigger sensitivity: 5
@@ -232,7 +293,6 @@ number:
       - uart.write: "saveConfig\r\n"
       - delay: 500ms
       - switch.turn_on: mmwave_sensor
-
 
   - platform: template
     name: Detection Delay      #Confirmation delay      Value range: 0 ～ 100  default 0.050 seconds.
@@ -280,7 +340,6 @@ number:
       - delay: 500ms
       - switch.turn_on: mmwave_sensor
 
-
   - platform: template
     name: Blockade Time                  #Configure block time        Value range: 1 ～ 255, default 1 seconds.
     id: Blockade_Time
@@ -327,6 +386,12 @@ button:
     id: restart_esp
     entity_category: config
     internal: true
+
+  - platform: safe_mode
+    name: "Safe Mode"
+    internal: false
+    entity_category: config
+
   - platform: template
     name: "Restart_mmWave"
     id: "restart_mmwave"
@@ -347,11 +412,67 @@ text_sensor:
   - platform: wifi_info
     ip_address:
       name: "IP Address"
+      entity_category: diagnostic
     ssid:
       name: "Connected SSID"
+      entity_category: diagnostic
     mac_address:
       name: "Mac Address"
+      entity_category: diagnostic
+
+  #  Creates a sensor showing when the device was last restarted
+  - platform: template
+    name: 'Last Restart'
+    id: device_last_restart
+    icon: mdi:clock
+    entity_category: diagnostic
+#    device_class: timestamp
+
+  #  Creates a sensor of the uptime of the device, in formatted days, hours, minutes and seconds
+  - platform: template
+    name: "Uptime"
+    entity_category: diagnostic
+    lambda: |-
+      int seconds = (id(uptime_sensor).state);
+      int days = seconds / (24 * 3600);
+      seconds = seconds % (24 * 3600);
+      int hours = seconds / 3600;
+      seconds = seconds % 3600;
+      int minutes = seconds /  60;
+      seconds = seconds % 60;
+      if ( days > 3650 ) {
+        return { "Starting up" };
+      } else if ( days ) {
+        return { (String(days) +"d " + String(hours) +"h " + String(minutes) +"m "+ String(seconds) +"s").c_str() };
+      } else if ( hours ) {
+        return { (String(hours) +"h " + String(minutes) +"m "+ String(seconds) +"s").c_str() };
+      } else if ( minutes ) {
+        return { (String(minutes) +"m "+ String(seconds) +"s").c_str() };
+      } else {
+        return { (String(seconds) +"s").c_str() };
+      }
+    icon: mdi:clock-start
 
 time:
   - platform: sntp
-    id: my_time
+    id: sntp_time
+  # Define the timezone of the device
+    timezone: "${timezone}"
+  # Change sync interval from default 5min to 6 hours (or as set in substitutions)
+    update_interval: ${sntp_update_interval}
+  # Set specific sntp servers to use
+    servers:
+      - "${sntp_server_1}"
+      - "${sntp_server_2}"
+      - "${sntp_server_3}"
+  # Publish the time the device was last restarted
+    on_time_sync:
+      then:
+        # Update last restart time, but only once.
+        - if:
+            condition:
+              lambda: 'return id(device_last_restart).state == "";'
+            then:
+              - text_sensor.template.publish:
+                  id: device_last_restart
+                  state: !lambda 'return id(sntp_time).now().strftime("%a %d %b %Y - %I:%M:%S %p");'

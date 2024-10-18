@@ -1,8 +1,7 @@
 substitutions:
-  name: "athom-ws2812b"
-  friendly_name: "Athom WS2812B"
-  project_name: "athom.ws2812b"
-  project_version: "1.1"
+  device_name: "athom-ws2812b"
+  project_name: "Athom Technology.WS2812B Controller"
+  project_version: "1.1.1"
   button_toggle: "true"
   led_restore_mode: RESTORE_DEFAULT_OFF
   number_of_leds: '150'
@@ -10,8 +9,10 @@ substitutions:
   led_chipset: WS2811
 
 esphome:
-  name: "${name}"
+  name: "${device_name}"
+  friendly_name: ""
   name_add_mac_suffix: true
+  min_version: 2024.6.0
   project:
     name: "${project_name}"
     version: "${project_version}"
@@ -28,6 +29,7 @@ preferences:
 api:
 
 ota:
+  - platform: esphome
 
 logger:
   baud_rate: 0
@@ -37,7 +39,6 @@ mdns:
 
 web_server:
   port: 80
-
 
 wifi:
   ap: {} # This spawns an AP with the device name and mac address with no password.
@@ -49,14 +50,14 @@ dashboard_import:
 
 binary_sensor:
   - platform: status
-    name: "${friendly_name} Status"
+    name: "Status"
 
   - platform: gpio
     pin:
       number: 0
       mode: INPUT_PULLUP
       inverted: true
-    name: "${friendly_name} Power Button"
+    name: "Power Button"
     disabled_by_default: true
     on_multi_click:
       - timing:
@@ -71,22 +72,26 @@ binary_sensor:
 
 sensor:
   - platform: uptime
-    name: "${friendly_name} Uptime"
+    name: "Uptime Sensor"
 
   - platform: wifi_signal
-    name: "${friendly_name} WiFi Signal"
+    name: "WiFi Signal"
     update_interval: 60s
 
 button:
   - platform: factory_reset
-    name: Restart with Factory Default Settings
+    name: "Reset"
     id: Reset
+
+  - platform: safe_mode
+    name: "Safe Mode"
+    internal: false
 
 light:
   - platform: fastled_clockless
     pin: GPIO1
     id: leds
-    name: "${friendly_name}"
+    name: "WS2812B Controller"
     chipset: ${led_chipset}
     num_leds: ${number_of_leds}
     rgb_order: ${led_rgb_order}
@@ -98,5 +103,12 @@ light:
 text_sensor:
   - platform: wifi_info
     ip_address:
-      name: "${friendly_name} IP Address"
-      disabled_by_default: true
+      name: "IP Address"
+    ssid:
+      name: "Connected SSID"
+    mac_address:
+      name: "Mac Address"
+     
+time:
+  - platform: sntp
+    id: sntp_time

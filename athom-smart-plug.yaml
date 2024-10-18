@@ -1,51 +1,148 @@
 substitutions:
+
   name: "athom-smart-plug"
-  friendly_name: "Athom Smart Plug"
-  project_name: "athom.smart-plug"
-  project_version: "1.1"
+  friendly_name: "Smart Plug"
+  # Allows ESP device to be automatically lined to an 'Area' in Home Assistant. Typically used for areas such as 'Lounge Room', 'Kitchen' etc
+  room: ""
+  device_description: "athom smart plug"
+  project_name: "Athom Technology.Smart Plug"
+  project_version: "v1.0.2"
   relay_restore_mode: RESTORE_DEFAULT_OFF
+  sensor_update_interval: 10s
+  # Current Limit in Amps. AU Plug = 10. IL, BR, EU, UK, US Plug = 16.
+  current_limit : "10"
+  # Define a domain for this device to use. i.e. iot.home.lan (so device will appear as athom-smart-plug-v2.iot.home.lan in DNS/DHCP logs)
+  dns_domain: ""
+  # Set timezone of the smart plug. Useful if the plug is in a location different to the HA server. Can be entered in unix Country/Area format (i.e. "Australia/Sydney")
+  timezone: ""
+  # Set the duration between the sntp service polling ntp.org servers for an update
+  sntp_update_interval: "6h"
+  # Network time servers for your region, enter from lowest to highest priority. To use local servers update as per zones or countries at: https://www.ntppool.org/zone/@
+  sntp_server_1: "0.pool.ntp.org"
+  sntp_server_2: "1.pool.ntp.org"
+  sntp_server_3: "2.pool.ntp.org"  
+  # Enables faster network connections, with last connected SSID being connected to and no full scan for SSID being undertaken
+  wifi_fast_connect: "false"
+  # Define logging level: NONE, ERROR, WARN, INFO, DEBUG (Default), VERBOSE, VERY_VERBOSE
+  log_level: "INFO"
+  # Enable or disable the use of IPv6 networking on the device
+  ipv6_enable: "false"
+  # Hide the ENERGY sensor that shows kWh consumed, but with no time period associated with it. Resets when device restarted and reflashed.
+  hide_energy_sensor: "true"  
 
 esphome:
   name: "${name}"
+  friendly_name: "${friendly_name}"
+  comment: "${device_description}"
+  area: "${room}"
   name_add_mac_suffix: true
+  min_version: 2024.6.0
   project:
     name: "${project_name}"
     version: "${project_version}"
+  on_boot:
+    - priority: 600
+      then:
+        - select.set_index:
+            id: power_mode
+            index: !lambda |-
+                    return id(restore_mode)-1;
+        - lambda: |-
+              switch(id(restore_mode))
+              {
+              case 1:{
+                      id(relay).turn_off();
+                      break;
+                            }
+              case 2:{
+                      id(relay).turn_on();
+                      break;
+                            }
+              default:{
+                      break;
+                            }
+              }
 
 esp8266:
   board: esp8285
   restore_from_flash: true
 
 preferences:
-  flash_write_interval: 1min
+  flash_write_interval: 5min
 
 api:
 
 ota:
+  - platform: esphome
 
 logger:
+  level: ${log_level}
+  baud_rate: 0
+
+mdns:
+  disabled: false
 
 web_server:
   port: 80
 
+network:
+  enable_ipv6: ${ipv6_enable}
+
 wifi:
-  ap: {} # This spawns an AP with the device name and mac address with no password.
+  # This spawns an AP with the device name and mac address with no password.
+  ap: {}
+  # Allow rapid re-connection to previously connect WiFi SSID, skipping scan of all SSID
+  fast_connect: "${wifi_fast_connect}"
+  # Define dns domain / suffix to add to hostname
+  domain: "${dns_domain}"
 
 captive_portal:
 
 dashboard_import:
   package_import_url: github://athom-tech/athom-configs/athom-smart-plug.yaml
 
+# Dentra Components - Adds 'Platform - Energy Statistics'
+# https://github.com/dentra/esphome-components/tree/master/components/energy_statistics
+# external_components:
+#   - source: github://dentra/esphome-components
+
+globals:
+  - id: total_energy
+    type: float
+    restore_value: yes
+    initial_value: '0.0' 
+
+  - id: restore_mode
+    type: int
+    restore_value: yes
+    initial_value: "3"
+
+select:
+  - platform: template
+    name: "Power On State"
+    id: "power_mode"
+    optimistic: true
+    options:
+      - Always Off
+      - Always On
+      - Restore Power Off State
+    on_value:
+      then:
+        - lambda: |-
+            id(restore_mode)=i+1;
+
 binary_sensor:
   - platform: status
-    name: "${friendly_name} Status"
+    name: "Status"
+    entity_category: diagnostic
 
   - platform: gpio
     pin:
       number: 3
       mode: INPUT_PULLUP
       inverted: true
-    name: "${friendly_name} Power Button"
+    name: "Power Button"
+    id: power_button
     disabled_by_default: true
     on_multi_click:
       - timing:
@@ -60,12 +157,27 @@ binary_sensor:
 
 sensor:
   - platform: uptime
-    name: "${friendly_name} Uptime"
-    disabled_by_default: true
+    name: "Uptime Sensor"
+    id: uptime_sensor
+    entity_category: diagnostic
+    internal: True
 
+  # Reports the WiFi signal strength/RSSI in dB
   - platform: wifi_signal
-    name: "${friendly_name} WiFi Signal"
+    name: "WiFi Signal dB"
+    id: wifi_signal_db
     update_interval: 60s
+    entity_category: diagnostic
+
+  # Reports the WiFi signal strength in %
+  - platform: copy
+    source_id: wifi_signal_db
+    name: "WiFi Signal Percent"
+    filters:
+      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
+    unit_of_measurement: "%"
+    entity_category: diagnostic
+    device_class: ""
 
   - platform: hlw8012
     sel_pin:
@@ -74,8 +186,12 @@ sensor:
     cf_pin: GPIO4
     cf1_pin: GPIO5
     voltage_divider: 780
+
     current:
-      name: "${friendly_name} Current"
+      name: "Current"
+      id: current
+      unit_of_measurement: A
+      accuracy_decimals: 2
       filters:
           - calibrate_linear:
             - 0.0000 -> 0.0110 # Relay off no load
@@ -88,13 +204,24 @@ sensor:
             - 9.9171 -> 7.9830
           # Normalize for plug load
           - lambda: if (x < 0.0260) return 0; else return (x - 0.0260);
+      on_value_range:
+        - above: ${current_limit}
+          then:
+            - switch.turn_off: relay      
+
     voltage:
-      name: "${friendly_name} Voltage"
+      name: "Voltage"
+      id:   voltage
+      unit_of_measurement: V
+      accuracy_decimals: 1
+      filters:
+        - skip_initial: 2
 
     power:
-      name: "${friendly_name} Power"
+      name: "Power"
       id: socket_my_power
       unit_of_measurement: W
+      accuracy_decimals: 1
       filters:
           - calibrate_linear:
             - 0.0000 -> 0.5900 # Relay off no load
@@ -110,8 +237,40 @@ sensor:
     change_mode_every: 1
     update_interval: 5s
 
+    # Shows the Energy kWh since the device was last started
+    energy:
+      name: "Energy"
+      id: energy
+      unit_of_measurement: kWh
+      accuracy_decimals: 3
+      filters:
+         # Multiplication factor from W to kW is 0.001
+        - multiply: 0.001
+      on_value:
+        then:
+          - lambda: |-
+              static float previous_energy_value = 0.0;
+              float current_energy_value = id(energy).state;
+              id(total_energy) += current_energy_value - previous_energy_value;
+              previous_energy_value = current_energy_value;
+              id(total_energy_sensor).update();
+      # internal: ${hide_energy_sensor}
+
+    # Shows the TOTAL/Lifetime Energy kWh used by the device, may reset to zero upon firmware updates
+  - platform: template
+    name: "Total Energy"
+    id: total_energy_sensor
+    unit_of_measurement: kWh
+    device_class: "energy"
+    state_class: "total_increasing"
+    icon: "mdi:lightning-bolt"
+    accuracy_decimals: 3
+    lambda: |-
+      return id(total_energy);
+    update_interval: ${sensor_update_interval}
+
   - platform: total_daily_energy
-    name: "${friendly_name} Total Energy"
+    name: "Total Energy Since Boot"
     power_id: socket_my_power
     unit_of_measurement: kWh
     accuracy_decimals: 3
@@ -119,15 +278,53 @@ sensor:
     filters:
       - multiply: 0.001
 
+     # Dentra Components - Define the id of the sensor providing 'Total Energy' used
+  # - platform: "energy_statistics"
+  #   total: total_energy_sensor
+
+  #    # Dentra Components - Adds Energy Today. Persistents if restarted, unlike 'total_daily_energy'
+  #   energy_today:
+  #     name: "Total Energy Today"
+  #     id: total_energy_today
+  #     accuracy_decimals: 3
+  #     icon: mdi:hours-24
+
+  #    # Dentra Components - Adds Energy Yesterday
+  #   energy_yesterday:
+  #     name: "Total Energy Yesterday"
+  #     id: total_energy_yesterday
+  #     accuracy_decimals: 3
+
+  #    # Dentra Components - Adds Energy Week
+  #   energy_week:
+  #     name: "Total Energy Week"
+  #     id: total_energy_week
+  #     accuracy_decimals: 3
+
+  #    # Dentra Components - Adds Energy Month
+  #   energy_month:
+  #     name: "Total Energy Month"
+  #     id: total_energy_month
+  #     accuracy_decimals: 3
 
 button:
+  - platform: restart
+    name: "Restart"
+    entity_category: config
+
   - platform: factory_reset
-    name: Restart with Factory Default Settings
+    name: "Reset"
     id: Reset
+    entity_category: config
+
+  - platform: safe_mode
+    name: "Safe Mode"
+    internal: false
+    entity_category: config
 
 switch:
   - platform: gpio
-    name: "${friendly_name}"
+    name: "Plug"
     pin: GPIO14
     id: relay
     restore_mode: ${relay_restore_mode}
@@ -139,7 +336,7 @@ switch:
 
 light:
   - platform: status_led
-    name: "${friendly_name} Status LED"
+    name: "Status LED"
     id: blue_led
     disabled_by_default: true
     pin:
@@ -149,9 +346,68 @@ light:
 text_sensor:
   - platform: wifi_info
     ip_address:
-      name: "${friendly_name} IP Address"
-      disabled_by_default: true
+      name: "IP Address"
+      entity_category: diagnostic
+    ssid:
+      name: "Connected SSID"
+      entity_category: diagnostic
+    mac_address:
+      name: "Mac Address"
+      entity_category: diagnostic
+
+  #  Creates a sensor showing when the device was last restarted
+  - platform: template
+    name: 'Last Restart'
+    id: device_last_restart
+    icon: mdi:clock
+    entity_category: diagnostic
+#    device_class: timestamp
+
+  #  Creates a sensor of the uptime of the device, in formatted days, hours, minutes and seconds
+  - platform: template
+    name: "Uptime"
+    entity_category: diagnostic
+    lambda: |-
+      int seconds = (id(uptime_sensor).state);
+      int days = seconds / (24 * 3600);
+      seconds = seconds % (24 * 3600);
+      int hours = seconds / 3600;
+      seconds = seconds % 3600;
+      int minutes = seconds /  60;
+      seconds = seconds % 60;
+      if ( days > 3650 ) {
+        return { "Starting up" };
+      } else if ( days ) {
+        return { (String(days) +"d " + String(hours) +"h " + String(minutes) +"m "+ String(seconds) +"s").c_str() };
+      } else if ( hours ) {
+        return { (String(hours) +"h " + String(minutes) +"m "+ String(seconds) +"s").c_str() };
+      } else if ( minutes ) {
+        return { (String(minutes) +"m "+ String(seconds) +"s").c_str() };
+      } else {
+        return { (String(seconds) +"s").c_str() };
+      }
+    icon: mdi:clock-start
 
 time:
   - platform: sntp
-    id: my_time
+    id: sntp_time
+  # Define the timezone of the device
+    timezone: "${timezone}"
+  # Change sync interval from default 5min to 6 hours (or as set in substitutions)
+    update_interval: ${sntp_update_interval}
+  # Set specific sntp servers to use
+    servers: 
+      - "${sntp_server_1}"
+      - "${sntp_server_2}"
+      - "${sntp_server_3}"    
+  # Publish the time the device was last restarted
+    on_time_sync:
+      then:
+        # Update last restart time, but only once.
+        - if:
+            condition:
+              lambda: 'return id(device_last_restart).state == "";'
+            then:
+              - text_sensor.template.publish:
+                  id: device_last_restart
+                  state: !lambda 'return id(sntp_time).now().strftime("%a %d %b %Y - %I:%M:%S %p");'

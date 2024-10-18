@@ -4,41 +4,38 @@ on:
   pull_request:
 
 jobs:
-  build:
-    name: Building ${{ matrix.device }}
+  ci:
+    name: Building ${{ matrix.file }}
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
-        device:
-          - rgb-light
-          - rgbww-light
-          - rgbct-light
-          - rgbw-light
-          - garage-door
-          - ws2812b
-          - mini-switch
-          - relay-board-x1
-          - relay-board-x2
-          - relay-board-x4
-          - relay-board-x8
-          - smart-plug
-          - smart-plug-v2
-          - wall-outlet
-          - sw01
-          - sw01-v2
-          - sw02
-          - sw02-v2
-          - sw03
-          - sw04
-          - cb02
-          - ls-4p-3wire
-          - ls-4p-4wire
-          - presence-sensor
+        file:
+          - athom-cb02.yaml
+          - athom-garage-door.yaml
+          - athom-mini-switch.yaml
+          - athom-presence-sensor.yaml
+          - athom-relay-board-x1.yaml
+          - athom-relay-board-x2.yaml
+          - athom-relay-board-x4.yaml
+          - athom-relay-board-x8.yaml
+          - athom-rgb-light.yaml
+          - athom-rgbct-light.yaml
+          - athom-rgbw-light.yaml
+          - athom-rgbww-light.yaml
+          - athom-smart-plug-v2.yaml
+          - athom-smart-plug.yaml
+          - athom-sw01-v2.yaml
+          - athom-sw01.yaml
+          - athom-sw02-v2.yaml
+          - athom-sw02.yaml
+          - athom-sw03.yaml
+          - athom-sw04.yaml
+          - athom-wall-outlet.yaml
+          - athom-without-relay-plug.yaml
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v3.2.0
-      - uses: esphome/build-action@v1.1.0
-        id: esphome-build
+      - name: Checkout source code
+        uses: actions/checkout@v4.1.7
+      - name: Build ESPHome firmware to verify configuration
+        uses: esphome/build-action@v4.0.1
         with:
-          yaml_file: athom-${{ matrix.device }}.yaml
+          yaml-file: ${{ matrix.file }}

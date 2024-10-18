@@ -1,0 +1,37 @@
+name: Build and Publish ESPHome firmware and website
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    uses: esphome/workflows/.github/workflows/publish.yml@main
+    with:
+      # CHANGEME: Set the filenames of your config files here:
+      files:
+        athom-cb02.yaml,
+        athom-garage-door.yaml,
+        athom-mini-switch.yaml,
+        athom-presence-sensor.yaml,
+        athom-relay-board-x1.yaml,
+        athom-relay-board-x2.yaml,
+        athom-relay-board-x4.yaml,
+        athom-relay-board-x8.yaml,
+        athom-rgb-light.yaml,
+        athom-rgbct-light.yaml,
+        athom-rgbw-light.yaml,
+        athom-rgbww-light.yaml,
+        athom-smart-plug-v2.yaml,
+        athom-smart-plug.yaml,
+        athom-sw01-v2.yaml,
+        athom-sw01.yaml,
+        athom-sw02-v2.yaml,
+        athom-sw02.yaml,
+        athom-sw03.yaml,
+        athom-sw04.yaml,
+        athom-wall-outlet.yaml,
+        athom-without-relay-plug.yaml
+      # CHANGEME: Set the name of your project here:
+      name: Athom ESP8285 Device

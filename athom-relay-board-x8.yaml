@@ -1,8 +1,17 @@
 substitutions:
-  name: "athom-relay-board-x8"
-  friendly_name: "Athom Relay Board x8"
-  project_name: "athom.relay-board-x8"
-  project_version: "1.0"
+  # Default name
+  name: "athom-8ch-relay"
+  # Default friendly name
+  friendly_name: "Athom 8CH Relay"
+  # Allows ESP device to be automatically linked to an 'Area' in Home Assistant. Typically used for areas such as 'Lounge Room', 'Kitchen' etc
+  room: ""
+  # Description as appears in ESPHome & top of webserver page
+  device_description: "athom esp8266 8ch relay board"
+  # Project Name
+  project_name: "Athom Technology.Athom 8CH Relay Board"
+  # Projection version denotes the release version of the yaml file, allowing checking of deployed vs latest version
+  project_version: "v1.0.2"
+   # Restore the relay (GPO switch) upon reboot to state:
   relay1_restore_mode: RESTORE_DEFAULT_OFF
   relay2_restore_mode: RESTORE_DEFAULT_OFF
   relay3_restore_mode: RESTORE_DEFAULT_OFF
@@ -11,10 +20,30 @@ substitutions:
   relay6_restore_mode: RESTORE_DEFAULT_OFF
   relay7_restore_mode: RESTORE_DEFAULT_OFF
   relay8_restore_mode: RESTORE_DEFAULT_OFF
+  # Define a domain for this device to use. i.e. iot.home.lan (so device will appear as athom-smart-plug-v2.iot.home.lan in DNS/DHCP logs)
+  dns_domain: ""
+  # Set timezone of the smart plug. Useful if the plug is in a location different to the HA server. Can be entered in unix Country/Area format (i.e. "Australia/Sydney")
+  timezone: ""
+  # Set the duration between the sntp service polling ntp.org servers for an update
+  sntp_update_interval: 6h
+  # Network time servers for your region, enter from lowest to highest priority. To use local servers update as per zones or countries at: https://www.ntppool.org/zone/@
+  sntp_server_1: "0.pool.ntp.org"
+  sntp_server_2: "1.pool.ntp.org"
+  sntp_server_3: "2.pool.ntp.org"
+  # Enables faster network connections, with last connected SSID being connected to and no full scan for SSID being undertaken
+  wifi_fast_connect: "false"
+  # Define logging level: NONE, ERROR, WARN, INFO, DEBUG (Default), VERBOSE, VERY_VERBOSE
+  log_level: "DEBUG"
+  # Enable or disable the use of IPv6 networking on the device
+  ipv6_enable: "false"
 
 esphome:
   name: "${name}"
+  friendly_name: "${friendly_name}"
+  comment: "${device_description}"
+  area: "${room}"
   name_add_mac_suffix: true
+  min_version: 2024.6.0
   project:
     name: "${project_name}"
     version: "${project_version}"
@@ -23,17 +52,31 @@ esp8266:
   board: esp8285
   restore_from_flash: true
 
+preferences:
+  flash_write_interval: 1min
+
 api:
 
 ota:
+  - platform: esphome
 
 logger:
+  level: ${log_level}
+  baud_rate: 115200
 
 web_server:
   port: 80
 
+network:
+  enable_ipv6: ${ipv6_enable}
+
 wifi:
-  ap: {} # This spawns an AP with the device name and mac address with no password.
+  # This spawns an AP with the device name and mac address with no password.
+  ap: {}
+  # Allow rapid re-connection to previously connect WiFi SSID, skipping scan of all SSID
+  fast_connect: "${wifi_fast_connect}"
+  # Define dns domain / suffix to add to hostname
+  domain: "${dns_domain}"
 
 captive_portal:
 
@@ -42,82 +85,98 @@ dashboard_import:
 
 binary_sensor:
   - platform: status
-    name: "${friendly_name} Status"
-
-  - platform: gpio
-    name: "${friendly_name} IO2"
-    disabled_by_default: true
-    pin:
-      number: GPIO2
-      mode: INPUT_PULLUP
-      inverted: true
+    name: "Status"
+    entity_category: diagnostic
 
 sensor:
   - platform: uptime
-    name: "${friendly_name} Uptime"
-    disabled_by_default: true
+    name: "Uptime Sensor"
+    id: uptime_sensor
+    entity_category: diagnostic
+    internal: true
 
   - platform: wifi_signal
-    name: "${friendly_name} WiFi Signal"
+    name: "WiFi Signal dB"
+    id: wifi_signal_db
     update_interval: 60s
+    entity_category: "diagnostic"
+
+  - platform: copy
+    source_id: wifi_signal_db
+    name: "WiFi Signal Percent"
+    filters:
+      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
+    unit_of_measurement: "Signal %"
+    entity_category: "diagnostic"
+    device_class: ""
 
 button:
   - platform: restart
-    id: restart_button
-    name: "${friendly_name} Restart"
+    name: "Restart"
+    entity_category: config
+
+  - platform: factory_reset
+    name: "Factory Reset"
+    id: Reset
+    entity_category: config
+
+  - platform: safe_mode
+    name: "Safe Mode"
+    internal: false
+    entity_category: config
 
 switch:
   - platform: gpio
-    name: "${friendly_name} - 1"
+    name: "Relay1"
     pin: GPIO16
     id: relay1
     restore_mode: ${relay1_restore_mode}
 
   - platform: gpio
-    name: "${friendly_name} - 2"
+    name: "Relay2"
     pin: GPIO14
     id: relay2
     restore_mode: ${relay2_restore_mode}
 
   - platform: gpio
-    name: "${friendly_name} - 3"
+    name: "Relay3"
     pin: GPIO12
     id: relay3
     restore_mode: ${relay3_restore_mode}
 
   - platform: gpio
-    name: "${friendly_name} - 4"
+    name: "Relay4"
     pin: GPIO13
     id: relay4
     restore_mode: ${relay4_restore_mode}
 
   - platform: gpio
-    name: "${friendly_name} - 5"
+    name: "Relay5"
     pin: GPIO15
     id: relay5
     restore_mode: ${relay5_restore_mode}
 
   - platform: gpio
-    name: "${friendly_name} - 6"
+    name: "Relay6"
     pin: GPIO0
     id: relay6
     restore_mode: ${relay6_restore_mode}
 
   - platform: gpio
-    name: "${friendly_name} - 7"
+    name: "Relay7"
     pin: GPIO4
     id: relay7
     restore_mode: ${relay7_restore_mode}
 
   - platform: gpio
-    name: "${friendly_name} - 8"
+    name: "Relay8"
     pin: GPIO5
     id: relay8
     restore_mode: ${relay8_restore_mode}
 
 light:
   - platform: status_led
-    name: "${friendly_name} Status LED"
+    name: "Status LED"
     disabled_by_default: true
     pin:
       inverted: true
@@ -126,5 +185,68 @@ light:
 text_sensor:
   - platform: wifi_info
     ip_address:
-      name: "${friendly_name} IP Address"
-      disabled_by_default: true
+      name: "IP Address"
+      entity_category: diagnostic
+    ssid:
+      name: "Connected SSID"
+      entity_category: diagnostic
+    mac_address:
+      name: "Mac Address"
+      entity_category: diagnostic
+
+  #  Creates a sensor showing when the device was last restarted
+  - platform: template
+    name: 'Last Restart'
+    id: device_last_restart
+    icon: mdi:clock
+    entity_category: diagnostic
+#    device_class: timestamp
+
+  #  Creates a sensor of the uptime of the device, in formatted days, hours, minutes and seconds
+  - platform: template
+    name: "Uptime"
+    entity_category: diagnostic
+    lambda: |-
+      int seconds = (id(uptime_sensor).state);
+      int days = seconds / (24 * 3600);
+      seconds = seconds % (24 * 3600);
+      int hours = seconds / 3600;
+      seconds = seconds % 3600;
+      int minutes = seconds /  60;
+      seconds = seconds % 60;
+      if ( days > 3650 ) {
+        return { "Starting up" };
+      } else if ( days ) {
+        return { (String(days) +"d " + String(hours) +"h " + String(minutes) +"m "+ String(seconds) +"s").c_str() };
+      } else if ( hours ) {
+        return { (String(hours) +"h " + String(minutes) +"m "+ String(seconds) +"s").c_str() };
+      } else if ( minutes ) {
+        return { (String(minutes) +"m "+ String(seconds) +"s").c_str() };
+      } else {
+        return { (String(seconds) +"s").c_str() };
+      }
+    icon: mdi:clock-start
+
+time:
+  - platform: sntp
+    id: sntp_time
+  # Define the timezone of the device
+    timezone: "${timezone}"
+  # Change sync interval from default 5min to 6 hours (or as set in substitutions)
+    update_interval: ${sntp_update_interval}
+  # Set specific sntp servers to use
+    servers:
+      - "${sntp_server_1}"
+      - "${sntp_server_2}"
+      - "${sntp_server_3}"
+  # Publish the time the device was last restarted
+    on_time_sync:
+      then:
+        # Update last restart time, but only once.
+        - if:
+            condition:
+              lambda: 'return id(device_last_restart).state == "";'
+            then:
+              - text_sensor.template.publish:
+                  id: device_last_restart
+                  state: !lambda 'return id(sntp_time).now().strftime("%a %d %b %Y - %I:%M:%S %p");'

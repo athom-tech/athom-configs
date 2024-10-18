@@ -1,15 +1,12 @@
 substitutions:
-  name: "athom-wall-outlet"
-  friendly_name: "Athom Wall Outlet"
+  name: "athom-without-relay-plug"
+  friendly_name: "Smart Plug"
   # Allows ESP device to be automatically lined to an 'Area' in Home Assistant. Typically used for areas such as 'Lounge Room', 'Kitchen' etc
   room: ""
-  device_description: "athom wall outlet"
-  project_name: "Athom Technology.Athom Wall Outlet"
-  project_version: "v1.1.3"
+  device_description: "athom esp8285 without relay plug"
+  project_name: "Athom Technology.Athom Without Relay Plug"
+  project_version: "v2.0.6"
   sensor_update_interval: "10s"
-  relay_restore_mode: RESTORE_DEFAULT_OFF
-  # Current Limit in Amps. AU Plug = 10. IL, BR, EU, UK, US Plug = 16.
-  current_limit : "16"
   # Define a domain for this device to use. i.e. iot.home.lan (so device will appear as athom-smart-plug-v2.iot.home.lan in DNS/DHCP logs)
   dns_domain: ""
   # Set timezone of the smart plug. Useful if the plug is in a location different to the HA server. Can be entered in unix Country/Area format (i.e. "Australia/Sydney")
@@ -27,7 +24,7 @@ substitutions:
   # Enable or disable the use of IPv6 networking on the device
   ipv6_enable: "false"
   # Hide the ENERGY sensor that shows kWh consumed, but with no time period associated with it. Resets when device restarted and reflashed.
-  hide_energy_sensor: "true"
+  hide_energy_sensor: "false"
 
 esphome:
   name: "${name}"
@@ -39,29 +36,7 @@ esphome:
   project:
     name: "${project_name}"
     version: "${project_version}"
-  on_boot:
-    - priority: 600
-      then:
-        - select.set_index:
-            id: power_mode
-            index: !lambda |-
-                    return id(restore_mode)-1;
-        - lambda: |-
-              switch(id(restore_mode))
-              {
-              case 1:{
-                      id(relay).turn_off();
-                      break;
-                            }
-              case 2:{
-                      id(relay).turn_on();
-                      break;
-                            }
-              default:{
-                      break;
-                            }
-              }
-
+ 
 esp8266:
   board: esp8285
   restore_from_flash: true
@@ -75,6 +50,7 @@ ota:
   - platform: esphome
 
 logger:
+  level: ${log_level}
   baud_rate: 0
 
 mdns:
@@ -97,7 +73,12 @@ wifi:
 captive_portal:
 
 dashboard_import:
-  package_import_url: github://athom-tech/athom-configs/athom-wall-outlet.yaml
+  package_import_url: github://athom-tech/athom-configs/athom-without-relay-plug.yaml
+
+# Dentra Components - Adds 'Platform - Energy Statistics'
+# https://github.com/dentra/esphome-components/tree/master/components/energy_statistics
+# external_components:
+#   - source: github://dentra/esphome-components
 
 uart:
   rx_pin: RX
@@ -110,25 +91,6 @@ globals:
     restore_value: yes
     initial_value: '0.0'
 
-  - id: restore_mode
-    type: int
-    restore_value: yes
-    initial_value: "3"
-
-select:
-  - platform: template
-    name: "Power On State"
-    id: "power_mode"
-    optimistic: true
-    options:
-      - Always Off
-      - Always On
-      - Restore Power Off State
-    on_value:
-      then:
-        - lambda: |-
-            id(restore_mode)=i+1;
-
 binary_sensor:
   - platform: status
     name: "Status"
@@ -139,16 +101,11 @@ binary_sensor:
       number: 5
       mode: INPUT_PULLUP
       inverted: true
-    name: "Power Button"
+    name: "Button"
     disabled_by_default: true
     on_multi_click:
       - timing:
-          - ON for at most 1s
-          - OFF for at least 0.2s
-        then:
-          - switch.toggle: relay
-      - timing:
-          - ON for at least 4s
+        - ON for at least 4s
         then:
           - button.press: Reset
 
@@ -182,10 +139,6 @@ sensor:
       filters:
         - throttle_average: ${sensor_update_interval}
         - lambda: if (x < 0.060) return 0.0; else return x;   #For the chip will report less than 3w power when no load is connected
-      on_value_range:
-        - above: ${current_limit}
-          then:
-            - switch.turn_off: relay
 
     voltage:
       name: "Voltage"
@@ -203,6 +156,7 @@ sensor:
       name: "Energy"
       id: energy
       unit_of_measurement: kWh
+      internal: ${hide_energy_sensor}
       filters:
         - throttle: ${sensor_update_interval}
         # Multiplication factor from W to kW is 0.001
@@ -215,7 +169,7 @@ sensor:
               id(total_energy) += current_energy_value - previous_energy_value;
               previous_energy_value = current_energy_value;
               id(total_energy_sensor).update();
-      # internal: ${hide_energy_sensor}
+
 
     apparent_power:
       name: "Apparent Power"
@@ -296,21 +250,10 @@ button:
     internal: false
     entity_category: config
 
-switch:
-  - platform: gpio
-    name: "Switch"
-    pin: GPIO12
-    id: relay
-    restore_mode: ${relay_restore_mode}
-    on_turn_on:
-      - light.turn_on: red_led
-    on_turn_off:
-      - light.turn_off: red_led
-
 light:
   - platform: status_led
     name: "Status LED"
-    id: red_led
+    id: blue_led
     disabled_by_default: true
     pin:
       inverted: true

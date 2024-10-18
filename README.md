@@ -1,4 +1,4 @@
-# Only applicable to ESP8285, ESP32 devices cannot be used
+# Only applicable to ESP8285,[Please click for ESP32 devices](https://github.com/athom-tech/esp32-configs)
 
 ### Athom ESPHome configurations
 
