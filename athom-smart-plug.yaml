@@ -6,7 +6,7 @@ substitutions:
   room: ""
   device_description: "athom smart plug"
   project_name: "Athom Technology.Smart Plug"
-  project_version: "v1.0.2"
+  project_version: "v1.0.3"
   relay_restore_mode: RESTORE_DEFAULT_OFF
   sensor_update_interval: 10s
   # Current Limit in Amps. AU Plug = 10. IL, BR, EU, UK, US Plug = 16.
@@ -29,7 +29,11 @@ substitutions:
   ipv6_enable: "false"
   # Hide the ENERGY sensor that shows kWh consumed, but with no time period associated with it. Resets when device restarted and reflashed.
   hide_energy_sensor: "true"  
+  # Power plug icon selection. Change to reflect the type/country of powr plug in use, this will update the power plug icon shown next to the switch
+  power_plug_type: "power-socket-us"  # Options: power-socket-au | power-socket-ch | power-socket-de | power-socket-eu | power-socket-fr | power-socket-it | power-socket-jp | power-socket-uk | power-socket-us |
 
+########################## End of Substitutions #########################
+  
 esphome:
   name: "${name}"
   friendly_name: "${friendly_name}"
@@ -84,6 +88,7 @@ mdns:
 
 web_server:
   port: 80
+#  version: 3
 
 network:
   enable_ipv6: ${ipv6_enable}
@@ -122,6 +127,7 @@ select:
     name: "Power On State"
     id: "power_mode"
     optimistic: true
+    icon: mdi:electric-switch
     options:
       - Always Off
       - Always On
@@ -134,6 +140,7 @@ select:
 binary_sensor:
   - platform: status
     name: "Status"
+    icon: mdi:check-network-outline
     entity_category: diagnostic
 
   - platform: gpio
@@ -192,6 +199,7 @@ sensor:
       id: current
       unit_of_measurement: A
       accuracy_decimals: 2
+      icon: mdi:current-ac
       filters:
           - calibrate_linear:
             - 0.0000 -> 0.0110 # Relay off no load
@@ -214,6 +222,7 @@ sensor:
       id:   voltage
       unit_of_measurement: V
       accuracy_decimals: 1
+      icon: mdi:sine-wave
       filters:
         - skip_initial: 2
 
@@ -222,6 +231,7 @@ sensor:
       id: socket_my_power
       unit_of_measurement: W
       accuracy_decimals: 1
+      icon: mdi:power
       filters:
           - calibrate_linear:
             - 0.0000 -> 0.5900 # Relay off no load
@@ -241,6 +251,7 @@ sensor:
     energy:
       name: "Energy"
       id: energy
+      icon: mdi:lightning-bolt
       unit_of_measurement: kWh
       accuracy_decimals: 3
       filters:
@@ -263,7 +274,7 @@ sensor:
     unit_of_measurement: kWh
     device_class: "energy"
     state_class: "total_increasing"
-    icon: "mdi:lightning-bolt"
+    icon: mdi:lightning-bolt
     accuracy_decimals: 3
     lambda: |-
       return id(total_energy);
@@ -273,6 +284,7 @@ sensor:
     name: "Total Energy Since Boot"
     power_id: socket_my_power
     unit_of_measurement: kWh
+    icon: mdi:hours-24
     accuracy_decimals: 3
     restore: true
     filters:
@@ -293,18 +305,21 @@ sensor:
   #   energy_yesterday:
   #     name: "Total Energy Yesterday"
   #     id: total_energy_yesterday
+  #     icon: mdi:calendar-today
   #     accuracy_decimals: 3
 
   #    # Dentra Components - Adds Energy Week
   #   energy_week:
   #     name: "Total Energy Week"
   #     id: total_energy_week
+  #     icon: mdi:calendar-week
   #     accuracy_decimals: 3
 
   #    # Dentra Components - Adds Energy Month
   #   energy_month:
   #     name: "Total Energy Month"
   #     id: total_energy_month
+  #     icon: mdi:calendar-month
   #     accuracy_decimals: 3
 
 button:
@@ -328,6 +343,7 @@ switch:
     pin: GPIO14
     id: relay
     restore_mode: ${relay_restore_mode}
+    icon: mdi:${power_plug_type}
     on_turn_on:
       - light.turn_on: blue_led
 
@@ -338,6 +354,7 @@ light:
   - platform: status_led
     name: "Status LED"
     id: blue_led
+    icon: mdi:lightbulb-outline
     disabled_by_default: true
     pin:
       inverted: true
@@ -347,12 +364,15 @@ text_sensor:
   - platform: wifi_info
     ip_address:
       name: "IP Address"
+      icon: mdi:ip-network
       entity_category: diagnostic
     ssid:
       name: "Connected SSID"
+      icon: mdi:wifi-strength-2
       entity_category: diagnostic
     mac_address:
       name: "Mac Address"
+      icon: mdi:network-pos
       entity_category: diagnostic
 
   #  Creates a sensor showing when the device was last restarted
