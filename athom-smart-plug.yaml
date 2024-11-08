@@ -376,7 +376,7 @@ text_sensor:
       icon: mdi:wifi-strength-2
       entity_category: diagnostic
     mac_address:
-      name: "Mac Address"
+      name: "MAC Address"
       icon: mdi:network-pos
       entity_category: diagnostic
 
