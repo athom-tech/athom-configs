@@ -416,7 +416,7 @@ text_sensor:
       name: "Connected SSID"
       entity_category: diagnostic
     mac_address:
-      name: "Mac Address"
+      name: "MAC Address"
       entity_category: diagnostic
 
   #  Creates a sensor showing when the device was last restarted
