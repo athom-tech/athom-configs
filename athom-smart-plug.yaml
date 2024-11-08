@@ -11,6 +11,8 @@ substitutions:
   sensor_update_interval: 10s
   # Current Limit in Amps. AU Plug = 10. IL, BR, EU, UK, US Plug = 16.
   current_limit : "10"
+  # Minimum Voltage before turning off the switch output.
+  minimum_voltage: "90"
   # Define a domain for this device to use. i.e. iot.home.lan (so device will appear as athom-smart-plug-v2.iot.home.lan in DNS/DHCP logs)
   dns_domain: ""
   # Set timezone of the smart plug. Useful if the plug is in a location different to the HA server. Can be entered in unix Country/Area format (i.e. "Australia/Sydney")
@@ -216,6 +218,10 @@ sensor:
       accuracy_decimals: 1
       filters:
         - skip_initial: 2
+      on_value_range:
+        - below: ${minimum_voltage}
+          then:
+            - switch.turn_off: relay
 
     power:
       name: "Power"
