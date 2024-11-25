@@ -161,9 +161,7 @@ text_sensor:
   - platform: wifi_info
     ip_address:
       entity_category: diagnostic
-      name: IP Address
-      address_0:
-        name: IPv4 Address
+      name: IPv4 Address
       address_2:
         name: IPv6 Address
 
