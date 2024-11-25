@@ -1,5 +1,3 @@
-# Based on https://github.com/athom-tech/athom-configs/blob/main/athom-without-relay-plug.yaml
-
 substitutions:
   name: "athom-without-relay-plug"
   friendly_name: "Athom Smart Plug"
