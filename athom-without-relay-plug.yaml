@@ -5,7 +5,6 @@ substitutions:
   friendly_name: "Athom Smart Plug"
   name_add_mac_suffix: true
 
-  # Allows ESP device to be automatically lined to an 'Area' in Home Assistant. Typically used for areas such as 'Lounge Room', 'Kitchen' etc
   device_description: "athom esp8285 without relay plug"
   project_name: "Athom Technology.Athom Without Relay Plug"
   project_version: "v2.0.6"
@@ -17,8 +16,9 @@ substitutions:
   # Set the duration between the sntp service polling ntp.org servers for an update
   sntp_update_interval: "1h"
 
-  # Network time servers for your region, enter from lowest to highest priority. To use local servers update as per zones or countries at: https://www.ntppool.org/zone/@
-  sntp_server_1: "172.20.66.1"
+  # Network time server for your region. To use local servers update as per zones or countries at: https://www.ntppool.org/zone/@
+  # Note that the default no country zone should work in most cases
+  sntp_server_1: "3.pool.ntp.org"
 
   # Define logging level: NONE, ERROR, WARN, INFO, DEBUG (Default), VERBOSE, VERY_VERBOSE
   log_level: "DEBUG"
