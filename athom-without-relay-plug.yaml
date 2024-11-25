@@ -21,6 +21,12 @@ substitutions:
   # Define logging level: NONE, ERROR, WARN, INFO, DEBUG (Default), VERBOSE, VERY_VERBOSE
   log_level: "DEBUG"
 
+  # Note for Home Assistant users: In order to get an accurate kWh:
+  #   go to Devices > Helpers > Create > Integral (Riemann sum integral sensor)
+  #   Set the name to whatever, I used "<name> Cumulative Power",
+  #   set metric prefix to k and the input sensor to the "Power" entity and presicion to 2
+  #   By doing that you can add the Cumulative Power entity to the Energy tab of Home Assistant
+
 esphome:
   name: "${name}"
   friendly_name: "${friendly_name}"
