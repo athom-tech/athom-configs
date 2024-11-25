@@ -54,7 +54,6 @@ web_server:
 
 network:
   enable_ipv6: true
-  min_ipv6_addr_count: 1
 
 wifi:
   power_save_mode: none
