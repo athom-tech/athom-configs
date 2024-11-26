@@ -12,11 +12,11 @@ substitutions:
   timezone: "Etc/UTC"
 
   # Set the duration between the sntp service polling ntp.org servers for an update
-  sntp_update_interval: "1h"
+  sntp_update_interval: "6h"
 
   # Network time server for your region. To use local servers update as per zones or countries at: https://www.ntppool.org/zone/@
-  # Note that the default no country zone should work in most cases
-  sntp_server_1: "3.pool.ntp.org"
+  # Note that the default no country zone should work in most cases, set to 2 because it is the only pool zone that provides IPv6
+  sntp_server_1: "2.pool.ntp.org"
 
   # Define logging level: NONE, ERROR, WARN, INFO, DEBUG (Default), VERBOSE, VERY_VERBOSE
   log_level: "DEBUG"
@@ -42,7 +42,7 @@ esp8266:
   restore_from_flash: true
 
 preferences:
-  flash_write_interval: 1h
+  flash_write_interval: 5h
 
 api:
 
