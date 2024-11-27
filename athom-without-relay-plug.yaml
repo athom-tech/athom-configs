@@ -39,10 +39,10 @@ esphome:
 
 esp8266:
   board: esp8285
-  restore_from_flash: true
+  restore_from_flash: false
 
 preferences:
-  flash_write_interval: 5h
+  flash_write_interval: 1d
 
 api:
 
