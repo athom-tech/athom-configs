@@ -109,7 +109,7 @@ text_sensor:
     ssid:
       name: "Connected SSID"
     mac_address:
-      name: "Mac Address"
+      name: "MAC Address"
 
 time:
   - platform: sntp
