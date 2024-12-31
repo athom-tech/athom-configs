@@ -10,7 +10,7 @@ substitutions:
   # Project Name
   project_name: "Athom Technology.Athom RGBCCT Bulb"
   # Projection version denotes the release version of the yaml file, allowing checking of deployed vs latest version
-  project_version: "v1.1.3"
+  project_version: "v1.1.4"
    # Restore the light (GPO switch) upon reboot to state:
   light_restore_mode: RESTORE_DEFAULT_ON
   # Define a domain for this device to use. i.e. iot.home.lan (so device will appear as athom-smart-plug-v2.iot.home.lan in DNS/DHCP logs)
