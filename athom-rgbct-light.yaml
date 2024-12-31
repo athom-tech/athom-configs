@@ -134,6 +134,7 @@ dashboard_import:
 binary_sensor:
   - platform: status
     name: "Status"
+    id: status_sensor
     entity_category: diagnostic
 
 sensor:
@@ -152,6 +153,7 @@ sensor:
   - platform: copy
     source_id: wifi_signal_db
     name: "WiFi Signal Percent"
+    id: wifi_signal_percent
     filters:
       - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
     unit_of_measurement: "Signal %"
@@ -161,6 +163,7 @@ sensor:
 button:
   - platform: restart
     name: "Restart"
+    id: restart_button
     entity_category: config
 
   - platform: factory_reset
@@ -171,6 +174,7 @@ button:
   - platform: safe_mode
     name: "Safe Mode"
     internal: false
+    id: safe_mode_button
     entity_category: config
 
 output:
@@ -224,12 +228,15 @@ text_sensor:
   - platform: wifi_info
     ip_address:
       name: "IP Address"
+      id: ip_address_sensor
       entity_category: diagnostic
     ssid:
       name: "Connected SSID"
+      id: connected_ssid_sensor
       entity_category: diagnostic
     mac_address:
       name: "Mac Address"
+      id: mac_address_sensor
       entity_category: diagnostic
 
   #  Creates a sensor showing when the device was last restarted
@@ -243,6 +250,7 @@ text_sensor:
   #  Creates a sensor of the uptime of the device, in formatted days, hours, minutes and seconds
   - platform: template
     name: "Uptime"
+    id: uptime_sensor
     entity_category: diagnostic
     lambda: |-
       int seconds = (id(uptime_sensor).state);
