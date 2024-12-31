@@ -250,7 +250,7 @@ text_sensor:
   #  Creates a sensor of the uptime of the device, in formatted days, hours, minutes and seconds
   - platform: template
     name: "Uptime"
-    id: uptime_sensor
+    id: uptime_template_sensor
     entity_category: diagnostic
     lambda: |-
       int seconds = (id(uptime_sensor).state);
