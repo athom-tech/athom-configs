@@ -286,7 +286,8 @@ sensor:
     update_interval: ${sensor_update_interval}
 
   - platform: total_daily_energy
-    name: "Total Energy Since Boot"
+    name: "Total Daily Energy"
+    id: total_daily_energy
     power_id: socket_my_power
     unit_of_measurement: kWh
     icon: mdi:hours-24
