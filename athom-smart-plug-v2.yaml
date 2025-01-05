@@ -278,7 +278,7 @@ sensor:
 
   - platform: total_daily_energy
     name: "Total Daily Energy"
-    id: total_daily_energy
+    id: daily_energy
     restore: true
     power_id: power_sensor
     unit_of_measurement: kWh

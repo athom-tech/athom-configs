@@ -287,7 +287,7 @@ sensor:
 
   - platform: total_daily_energy
     name: "Total Daily Energy"
-    id: total_daily_energy
+    id: daily_energy
     power_id: socket_my_power
     unit_of_measurement: kWh
     icon: mdi:hours-24
