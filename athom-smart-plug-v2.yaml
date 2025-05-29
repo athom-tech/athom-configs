@@ -271,6 +271,7 @@ sensor:
     update_interval: ${sensor_update_interval}
 
   - platform: total_daily_energy
+    id: daily_energy_sensor
     name: "Total Energy Since Boot"
     restore: true
     power_id: power_sensor
@@ -370,6 +371,7 @@ text_sensor:
 
   #  Creates a sensor of the uptime of the device, in formatted days, hours, minutes and seconds
   - platform: template
+    id: uptime_text
     name: "Uptime"
     entity_category: diagnostic
     lambda: |-
