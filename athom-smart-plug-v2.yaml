@@ -8,6 +8,7 @@ substitutions:
   project_version: "v2.0.8"
   sensor_update_interval: "10s"
   relay_restore_mode: RESTORE_DEFAULT_ON
+  hide_switch: "false"
   # Current Limit in Amps. AU Plug = 10. IL, BR, EU, UK, US Plug = 16.
   current_limit : "16"
   # Define a domain for this device to use. i.e. iot.home.lan (so device will appear as athom-smart-plug-v2.iot.home.lan in DNS/DHCP logs)
@@ -340,6 +341,7 @@ switch:
     id: relay
     restore_mode: ${relay_restore_mode}
     icon: mdi:${power_plug_type}
+    internal: "${hide_switch}"
 
 light:
   - platform: status_led
