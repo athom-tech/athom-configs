@@ -197,6 +197,7 @@ sensor:
 
   - platform: bh1750
     name: "Light Sensor"
+    id: light_sensor
     address: 0x23
     update_interval: 5s
 
