@@ -193,24 +193,39 @@ text_sensor:
     name: "Uptime"
     entity_category: diagnostic
     lambda: |-
-      int seconds = (id(uptime_sensor).state);
+      int seconds = (int) id(uptime_seconds).state;
       int days = seconds / (24 * 3600);
-      seconds = seconds % (24 * 3600);
+      seconds %= (24 * 3600);
       int hours = seconds / 3600;
-      seconds = seconds % 3600;
-      int minutes = seconds /  60;
-      seconds = seconds % 60;
-      if ( days > 3650 ) {
-        return { "Starting up" };
-      } else if ( days ) {
-        return { (String(days) +"d " + String(hours) +"h " + String(minutes) +"m "+ String(seconds) +"s").c_str() };
-      } else if ( hours ) {
-        return { (String(hours) +"h " + String(minutes) +"m "+ String(seconds) +"s").c_str() };
-      } else if ( minutes ) {
-        return { (String(minutes) +"m "+ String(seconds) +"s").c_str() };
+      seconds %= 3600;
+      int minutes = seconds / 60;
+      seconds %= 60;
+
+      if (days > 3650) {
+        return std::string("Starting up");
+      } else if (days) {
+        return std::string(
+          std::to_string(days) + "d " +
+          std::to_string(hours) + "h " +
+          std::to_string(minutes) + "m " +
+          std::to_string(seconds) + "s"
+        );
+      } else if (hours) {
+        return std::string(
+          std::to_string(hours) + "h " +
+          std::to_string(minutes) + "m " +
+          std::to_string(seconds) + "s"
+        );
+      } else if (minutes) {
+        return std::string(
+          std::to_string(minutes) + "m " +
+          std::to_string(seconds) + "s"
+        );
       } else {
-        return { (String(seconds) +"s").c_str() };
-      }
+        return std::string(
+          std::to_string(seconds) + "s"
+        );
+      }  
     icon: mdi:clock-start
 
 time:
