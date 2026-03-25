@@ -85,6 +85,7 @@ api:
 
 ota:
   - platform: esphome
+    id: ota_esphome_id
 
 logger:
   level: ${log_level}
@@ -119,9 +120,10 @@ dashboard_import:
 #   - source: github://dentra/esphome-components
 
 uart:
-  rx_pin: RX
-  baud_rate: 4800
-  parity: EVEN
+  - id: uart_bus
+    rx_pin: RX
+    baud_rate: 4800
+    parity: EVEN
 
 globals:
   - id: total_energy
@@ -151,6 +153,7 @@ select:
 binary_sensor:
   - platform: status
     name: "Status"
+    id: status_sensor
     icon: mdi:check-network-outline
     entity_category: diagnostic    
 
@@ -171,7 +174,7 @@ binary_sensor:
       - timing:
         - ON for at least 4s
         then:
-          - button.press: Reset
+          - button.press: factory_reset_button
 
 sensor:
   - platform: uptime
@@ -190,6 +193,7 @@ sensor:
   # Reports the WiFi signal strength in %
   - platform: copy
     source_id: wifi_signal_db
+    id: wifi_signal_percent
     name: "WiFi Signal Percent"
     filters:
       - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
@@ -322,15 +326,17 @@ sensor:
 button:
   - platform: restart
     name: "Restart"
+    id: restart_button
     entity_category: config
 
   - platform: factory_reset
     name: "Factory Reset"
-    id: Reset
+    id: factory_reset_button
     entity_category: config
 
   - platform: safe_mode
     name: "Safe Mode"
+    id: safe_mode_button
     internal: false
     entity_category: config
 
@@ -354,15 +360,19 @@ light:
 
 text_sensor:
   - platform: wifi_info
+    id: wifi_info_text
     ip_address:
+      id: ip_address_text
       name: "IP Address"
       icon: mdi:ip-network
       entity_category: diagnostic
     ssid:
+      id: ssid_text
       name: "Connected SSID"
       icon: mdi:wifi-strength-2
       entity_category: diagnostic
     mac_address:
+      id: mac_address_text
       name: "MAC Address"
       icon: mdi:network-pos
       entity_category: diagnostic
@@ -377,6 +387,7 @@ text_sensor:
 
   #  Creates a sensor of the uptime of the device, in formatted days, hours, minutes and seconds
   - platform: template
+    id: uptime_text
     name: "Uptime"
     entity_category: diagnostic
     lambda: |-
