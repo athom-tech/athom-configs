@@ -34,6 +34,7 @@ api:
 
 ota:
   - platform: esphome
+    id: ota_esphome_id
 
 logger:
   baud_rate: 0
@@ -55,6 +56,7 @@ dashboard_import:
 binary_sensor:
   - platform: status
     name: "Status"
+    id: status_sensor
 
   - platform: gpio
     pin:
@@ -62,6 +64,7 @@ binary_sensor:
       mode: INPUT_PULLUP
       inverted: true
     name: "Power Button"
+    id: power_button
     disabled_by_default: true
     on_multi_click:
       - timing:
@@ -72,23 +75,26 @@ binary_sensor:
       - timing:
           - ON for at least 4s
         then:
-          - button.press: Reset
+          - button.press: factory_reset_button
 
 sensor:
   - platform: uptime
+    id: uptime_sensor
     name: "Uptime Sensor"
 
   - platform: wifi_signal
+    id: wifi_signal_db
     name: "WiFi Signal"
     update_interval: 60s
 
 button:
   - platform: factory_reset
     name: "Reset"
-    id: Reset
+    id: factory_reset_button
 
   - platform: safe_mode
     name: "Safe Mode"
+    id: safe_mode_button
     internal: false
 
 light:
@@ -106,12 +112,16 @@ light:
 
 text_sensor:
   - platform: wifi_info
+    id: wifi_info_text
     ip_address:
+      id: ip_address_text
       name: "IP Address"
     ssid:
+      id: ssid_text
       name: "Connected SSID"
     mac_address:
-      name: "Mac Address"
+      id: mac_address_text
+      name: "MAC Address"
      
 time:
   - platform: sntp

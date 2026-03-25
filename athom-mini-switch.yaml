@@ -78,6 +78,7 @@ api:
 
 ota:
   - platform: esphome
+    id: ota_esphome_id
 
 logger:
   level: ${log_level}
@@ -128,15 +129,17 @@ select:
 button:
   - platform: restart
     name: "Restart"
+    id: restart_button
     entity_category: config
 
   - platform: factory_reset
     name: "Factory Reset"
-    id: Reset
+    id: factory_reset_button
     entity_category: config
 
   - platform: safe_mode
     name: "Safe Mode"
+    id: safe_mode_button
     internal: false
     entity_category: config
 
@@ -179,6 +182,7 @@ sensor:
 
   - platform: copy
     source_id: wifi_signal_db
+    id: wifi_signal_percent
     name: "WiFi Signal Percent"
     filters:
       - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
@@ -208,7 +212,7 @@ binary_sensor:
           - ON for at most 0.5s
           - OFF for at most 0.5s
         then:
-          - button.press: Reset
+          - button.press: factory_reset_button
 
   # Button on mini switch
   - platform: gpio
@@ -217,6 +221,7 @@ binary_sensor:
       mode: INPUT_PULLUP
       inverted: true
     name: "Power Button"
+    id: power_button
     disabled_by_default: true
     on_multi_click:
       - timing:
@@ -227,22 +232,27 @@ binary_sensor:
       - timing:
           - ON for at least 4s
         then:
-          - button.press: Reset
+          - button.press: factory_reset_button
 
   - platform: status
     name: "Status"
+    id: status_sensor
     entity_category: diagnostic
 
 text_sensor:
   - platform: wifi_info
+    id: wifi_info_text
     ip_address:
+      id: ip_address_text
       name: "IP Address"
       entity_category: diagnostic
     ssid:
+      id: ssid_text
       name: "Connected SSID"
       entity_category: diagnostic
     mac_address:
-      name: "Mac Address"
+      id: mac_address_text
+      name: "MAC Address"
       entity_category: diagnostic
 
   #  Creates a sensor showing when the device was last restarted
@@ -255,6 +265,7 @@ text_sensor:
 
   #  Creates a sensor of the uptime of the device, in formatted days, hours, minutes and seconds
   - platform: template
+    id: uptime_text
     name: "Uptime"
     entity_category: diagnostic
     lambda: |-

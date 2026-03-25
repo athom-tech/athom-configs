@@ -58,6 +58,7 @@ api:
 
 ota:
   - platform: esphome
+    id: ota_esphome_id
 
 web_server:
   port: 80
@@ -95,20 +96,22 @@ i2c:
   scan: true
 
 uart:
-  tx_pin: GPIO15
-  rx_pin: GPIO13
-  baud_rate: 115200
-  # debug:
-  #   direction: BOTH
-  #   dummy_receiver: true
-  #   after:
-  #     delimiter: "\n"
-  #   sequence:
-  #     - lambda: UARTDebug::log_string(direction, bytes);
+  - id: uart_bus
+    tx_pin: GPIO15
+    rx_pin: GPIO13
+    baud_rate: 115200
+    # debug:
+    #   direction: BOTH
+    #   dummy_receiver: true
+    #   after:
+    #     delimiter: "\n"
+    #   sequence:
+    #     - lambda: UARTDebug::log_string(direction, bytes);
 
 binary_sensor:
   - platform: status
     name: "Status"
+    id: status_sensor
     entity_category: diagnostic
 
   - platform: gpio
@@ -117,6 +120,7 @@ binary_sensor:
       mode: INPUT_PULLUP
       inverted: true
     name: "Button"
+    id: button_sensor
     disabled_by_default: true
     on_multi_click:
       - timing:
@@ -188,6 +192,7 @@ sensor:
 
   - platform: copy
     source_id: wifi_signal_db
+    id: wifi_signal_percent
     name: "WiFi Signal Percent"
     filters:
       - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
@@ -196,6 +201,7 @@ sensor:
     device_class: ""
 
   - platform: bh1750
+    id: light_sensor
     name: "Light Sensor"
     address: 0x23
     update_interval: 5s
@@ -369,7 +375,7 @@ number:
 button:
   - platform: factory_reset
     name: Restart with Factory Default Settings
-    id: Reset
+    id: factory_reset_button
     entity_category: config
     internal: true
   - platform: template
@@ -382,7 +388,7 @@ button:
       - uart.write: "resetCfg\r\n"
       - delay: 1s
       - switch.turn_on: mmwave_sensor
-      - button.press: Reset
+      - button.press: factory_reset_button
 
   - platform: restart
     name: Restart_esp
@@ -392,6 +398,7 @@ button:
 
   - platform: safe_mode
     name: "Safe Mode"
+    id: safe_mode_button
     internal: false
     entity_category: config
 
@@ -405,6 +412,7 @@ button:
 
   - platform: template
     name: Restart device
+    id: restart_button
     entity_category: config
     on_press:
       - button.press: restart_mmwave
@@ -413,14 +421,18 @@ button:
 
 text_sensor:
   - platform: wifi_info
+    id: wifi_info_text
     ip_address:
+      id: ip_address_text
       name: "IP Address"
       entity_category: diagnostic
     ssid:
+      id: ssid_text
       name: "Connected SSID"
       entity_category: diagnostic
     mac_address:
-      name: "Mac Address"
+      id: mac_address_text
+      name: "MAC Address"
       entity_category: diagnostic
 
   #  Creates a sensor showing when the device was last restarted
@@ -433,6 +445,7 @@ text_sensor:
 
   #  Creates a sensor of the uptime of the device, in formatted days, hours, minutes and seconds
   - platform: template
+    id: uptime_text
     name: "Uptime"
     entity_category: diagnostic
     lambda: |-
