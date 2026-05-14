@@ -76,7 +76,8 @@ binary_sensor:
 
 sensor:
   - platform: uptime
-    name: "Uptime Sensor"
+    name: "Uptime"
+    id: uptime_sensor
 
   - platform: wifi_signal
     name: "WiFi Signal"
