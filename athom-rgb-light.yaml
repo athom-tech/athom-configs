@@ -180,6 +180,7 @@ text_sensor:
   #  Creates a sensor of the uptime of the device, in formatted days, hours, minutes and seconds
   - platform: uptime
     name: "Uptime"
+    id: uptime_sensor
     entity_category: diagnostic
     icon: mdi:clock-start
     update_interval: 60s
