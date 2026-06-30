@@ -9,18 +9,18 @@
 #   packages:
 #     base: !include athrom-ir-remote.yaml
 #
-# IR Learning Workflow (codes are managed by Home Assistant, not stored here):
-#   1. Open ESPHome device logs while this config is flashed
-#   2. Point the original remote at the IR receiver and press a button
-#   3. ESPHome logs the decoded code (e.g. "Received NEC: address=0x1234, command=0x56")
-#   4. Record that code in your device-specific file as a button using
-#      remote_transmitter.transmit_* or transmit_pronto
+# IR Learning Workflow (via Home Assistant Remote integration):
+#   HA treats this device as a Remote entity via the ir_rf_proxy component.
+#   Learning and playback are managed in HA — no codes need to be stored here.
+#   For manual code capture, open ESPHome logs and press a button on the
+#   original remote — received codes are printed by the receiver (dump: all).
 #
 # GPIO pinout:
 #   GPIO4  — IR transmitter LED (38kHz carrier)
 #   GPIO5  — IR receiver (inverted: active-low signal from TSOP)
 #   GPIO13 — Onboard status LED (inverted: LOW = on)
 #   GPIO0  — Physical button (inverted: active-low, pulled up internally)
+#             Long press (4s) triggers factory reset
 # =============================================================================
 
 
@@ -55,7 +55,7 @@ esphome:
   comment: "${device_description}"
   area: "${room}"
   name_add_mac_suffix: true                   # Prevents hostname collisions if multiple units are deployed
-  min_version: 2024.6.0
+  min_version: 2024.11.0                      # Minimum version required for ir_rf_proxy support
   project:
     name: "${project_name}"
     version: "${project_version}"
@@ -80,7 +80,8 @@ preferences:
 # -----------------------------------------------------------------------------
 # Connectivity
 # -----------------------------------------------------------------------------
-api:                                          # Enables Home Assistant native API (required for HA integration)
+api:
+  reboot_timeout: 0s                          # Disables automatic reboot when HA is unreachable
 
 ota:
   - platform: esphome                         # Over-the-air firmware updates
@@ -98,6 +99,7 @@ captive_portal:                               # Serves a config page when device
 
 web_server:
   port: 80                                    # Built-in web UI for status and manual control
+  # version: 3                                # Newer UI — commented out as it may be too large for 2MB flash
 
 network:
   enable_ipv6: ${ipv6_enable}
@@ -110,30 +112,55 @@ dashboard_import:
 # IR Hardware
 # -----------------------------------------------------------------------------
 
-# Transmits IR signals to control devices. Used by device-specific button
-# implementations via remote_transmitter.transmit_* or transmit_pronto actions.
+# Transmits IR signals. Referenced by ir_rf_proxy below and by device-specific
+# button implementations via remote_transmitter.transmit_* or transmit_pronto.
 remote_transmitter:
+  id: ir_transmitter
   pin:
     number: GPIO4
   carrier_duty_percent: 50%                   # Standard 50% duty cycle for 38kHz IR carrier
+  non_blocking: true                          # IR TX runs without stalling the main loop
 
-# Receives and decodes incoming IR signals. With dump: all, every received
-# code is printed to the ESPHome log — use this to capture codes from an
-# original remote during the learning workflow described at the top of this file.
+# Receives and decodes incoming IR signals. dump: all logs every received code
+# regardless of protocol — useful during manual code capture sessions.
 remote_receiver:
+  id: ir_receiver
   pin:
     number: GPIO5
     inverted: true                            # TSOP receivers output active-low
   dump: all                                   # Log all received codes regardless of protocol
+  tolerance: 25%                              # Accepts signals up to 25% outside spec — helps with noisy/weak remotes
+
+# Exposes this device to Home Assistant as a Remote entity via the ir_rf_proxy
+# integration. HA handles code learning, storage, and playback — no codes need
+# to be hardcoded here. See: https://www.home-assistant.io/integrations/remote/
+infrared:
+  - platform: ir_rf_proxy
+    name: "IR Transmitter"
+    id: ir_proxy_transmitter
+    remote_transmitter_id: ir_transmitter
+
+  - platform: ir_rf_proxy
+    name: "IR Receiver"
+    id: ir_proxy_receiver
+    receiver_frequency: 38kHz
+    remote_receiver_id: ir_receiver
 
 
 # -----------------------------------------------------------------------------
 # Status Indicator
 # -----------------------------------------------------------------------------
-status_led:
-  pin:
-    number: GPIO13
-    inverted: true                            # LED is active-low on this hardware
+
+# Using the light platform instead of status_led exposes the LED as a HA entity,
+# allowing it to be toggled from the HA UI or automations.
+light:
+  - platform: status_led
+    name: "Status LED"
+    id: status_led_light
+    disabled_by_default: true
+    pin:
+      number: GPIO13
+      inverted: true                          # LED is active-low on this hardware
 
 
 # -----------------------------------------------------------------------------
@@ -149,8 +176,6 @@ binary_sensor:
     icon: mdi:check-network-outline
     entity_category: diagnostic
 
-  # Physical button on the device. Disabled in HA by default — enable and
-  # assign actions in your device-specific file if needed.
   - platform: gpio
     pin:
       number: GPIO0
@@ -159,13 +184,19 @@ binary_sensor:
     id: physical_button
     name: "Physical Button"
     disabled_by_default: true
+    on_multi_click:
+      # Long press: factory reset. Short press actions can be added in device-specific files.
+      - timing:
+          - ON for at least 4s
+        then:
+          - button.press: Reset
 
 sensor:
+  # Uptime reported as a timestamp — HA displays time-since-boot automatically
   - platform: uptime
-    name: "Uptime Sensor"
-    id: uptime_sensor
+    name: "Uptime"
+    type: timestamp
     entity_category: diagnostic
-    internal: true                            # Used only to drive the formatted Uptime text sensor below
 
   - platform: wifi_signal
     name: "WiFi Signal dB"
@@ -204,31 +235,6 @@ text_sensor:
     id: device_last_restart
     icon: mdi:clock
     entity_category: diagnostic
-
-  # Human-readable uptime derived from the raw uptime_sensor seconds value
-  - platform: template
-    name: "Uptime"
-    entity_category: diagnostic
-    icon: mdi:clock-start
-    lambda: |-
-      int seconds = (id(uptime_sensor).state);
-      int days = seconds / (24 * 3600);
-      seconds = seconds % (24 * 3600);
-      int hours = seconds / 3600;
-      seconds = seconds % 3600;
-      int minutes = seconds / 60;
-      seconds = seconds % 60;
-      if ( days > 3650 ) {
-        return { "Starting up" };
-      } else if ( days ) {
-        return { (String(days) +"d " + String(hours) +"h " + String(minutes) +"m "+ String(seconds) +"s").c_str() };
-      } else if ( hours ) {
-        return { (String(hours) +"h " + String(minutes) +"m "+ String(seconds) +"s").c_str() };
-      } else if ( minutes ) {
-        return { (String(minutes) +"m "+ String(seconds) +"s").c_str() };
-      } else {
-        return { (String(seconds) +"s").c_str() };
-      }
 
 
 # -----------------------------------------------------------------------------
