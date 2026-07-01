@@ -55,7 +55,7 @@ esphome:
   comment: "${device_description}"
   area: "${room}"
   name_add_mac_suffix: true                   # Prevents hostname collisions if multiple units are deployed
-  min_version: 2024.11.0                      # Minimum version required for ir_rf_proxy support
+  min_version: 2026.6.0                      # Minimum version required for ir_rf_proxy support
   project:
     name: "${project_name}"
     version: "${project_version}"
@@ -105,7 +105,7 @@ network:
   enable_ipv6: ${ipv6_enable}
 
 dashboard_import:
-  package_import_url: github://athom-tech/athom-configs/athrom-ir-remote.yaml
+  package_import_url: github://athom-tech/athom-configs/athom-ir-remote.yaml
 
 
 # -----------------------------------------------------------------------------
