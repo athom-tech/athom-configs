@@ -1,0 +1,277 @@
+# =============================================================================
+# Athom IR Remote Controller — Base Configuration
+# Hardware: https://www.athom.tech/blank-1/tasmota-ir-controller
+# Chip: ESP8285 (ESP8266 with 2MB flash)
+#
+# This is a generic base file. Device-specific IR buttons and logic should be
+# implemented in a separate file that includes this one via packages:
+#
+#   packages:
+#     base: !include athrom-ir-remote.yaml
+#
+# IR Learning Workflow (via Home Assistant Remote integration):
+#   HA treats this device as a Remote entity via the ir_rf_proxy component.
+#   Learning and playback are managed in HA — no codes need to be stored here.
+#   For manual code capture, open ESPHome logs and press a button on the
+#   original remote — received codes are printed by the receiver (dump: all).
+#
+# GPIO pinout:
+#   GPIO4  — IR transmitter LED (38kHz carrier)
+#   GPIO5  — IR receiver (inverted: active-low signal from TSOP)
+#   GPIO13 — Onboard status LED (inverted: LOW = on)
+#   GPIO0  — Physical button (inverted: active-low, pulled up internally)
+#             Long press (4s) triggers factory reset
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# Substitutions
+# Override any of these in your device-specific file.
+# -----------------------------------------------------------------------------
+substitutions:
+  name: "athom-ir-remote"
+  friendly_name: "IR Remote"
+  room: ""                                    # Links device to a HA Area (e.g. "Lounge Room")
+  device_description: "Athom IR Remote Controller"
+  project_name: "China Athom Technology.Athom IR Remote"
+  project_version: "v1.0.0"
+  timezone: ""                                # Unix tz format e.g. "Australia/Sydney". Empty = UTC
+  sntp_update_interval: "6h"
+  sntp_server_1: "0.pool.ntp.org"
+  sntp_server_2: "1.pool.ntp.org"
+  sntp_server_3: "2.pool.ntp.org"
+  wifi_fast_connect: "false"                  # true = skip SSID scan, reconnect to last AP faster
+  log_level: "INFO"                           # NONE | ERROR | WARN | INFO | DEBUG | VERBOSE
+  ipv6_enable: "false"
+  dns_domain: ".local"                        # Appended to hostname in DNS/DHCP (e.g. "athom-ir-remote.local")
+
+
+# -----------------------------------------------------------------------------
+# ESPHome Core
+# -----------------------------------------------------------------------------
+esphome:
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  comment: "${device_description}"
+  area: "${room}"
+  name_add_mac_suffix: true                   # Prevents hostname collisions if multiple units are deployed
+  min_version: 2026.6.0                      # Minimum version required for ir_rf_proxy support
+  project:
+    name: "${project_name}"
+    version: "${project_version}"
+  platformio_options:                         # Required to target the 2MB flash layout on ESP8285
+    board_upload.flash_size: 2MB
+    board_upload.maximum_size: 2097152
+    board_build.ldscript: eagle.flash.2m.ld
+
+
+# -----------------------------------------------------------------------------
+# Hardware
+# -----------------------------------------------------------------------------
+esp8266:
+  board: esp8285
+  restore_from_flash: true
+  early_pin_init: false                       # Prevents output pins toggling during boot/OTA
+
+preferences:
+  flash_write_interval: 5min                  # Batches flash writes to reduce wear
+
+
+# -----------------------------------------------------------------------------
+# Connectivity
+# -----------------------------------------------------------------------------
+api:
+  reboot_timeout: 0s                          # Disables automatic reboot when HA is unreachable
+
+ota:
+  - platform: esphome                         # Over-the-air firmware updates
+
+wifi:
+  ap: {}                                      # Fallback access point if Wi-Fi credentials are missing or wrong
+  fast_connect: "${wifi_fast_connect}"
+  power_save_mode: none                       # Disables Wi-Fi power saving for lower latency IR control
+  domain: "${dns_domain}"
+
+mdns:
+  disabled: false                             # Allows discovery by hostname on the local network
+
+captive_portal:                               # Serves a config page when device is in fallback AP mode
+
+web_server:
+  port: 80                                    # Built-in web UI for status and manual control
+  # version: 3                                # Newer UI — commented out as it may be too large for 2MB flash
+
+network:
+  enable_ipv6: ${ipv6_enable}
+
+dashboard_import:
+  package_import_url: github://athom-tech/athom-configs/athom-ir-remote.yaml
+
+
+# -----------------------------------------------------------------------------
+# IR Hardware
+# -----------------------------------------------------------------------------
+
+# Transmits IR signals. Referenced by ir_rf_proxy below and by device-specific
+# button implementations via remote_transmitter.transmit_* or transmit_pronto.
+remote_transmitter:
+  id: ir_transmitter
+  pin:
+    number: GPIO4
+  carrier_duty_percent: 50%                   # Standard 50% duty cycle for 38kHz IR carrier
+  non_blocking: true                          # IR TX runs without stalling the main loop
+
+# Receives and decodes incoming IR signals. dump: all logs every received code
+# regardless of protocol — useful during manual code capture sessions.
+remote_receiver:
+  id: ir_receiver
+  pin:
+    number: GPIO5
+    inverted: true                            # TSOP receivers output active-low
+  dump: all                                   # Log all received codes regardless of protocol
+  tolerance: 25%                              # Accepts signals up to 25% outside spec — helps with noisy/weak remotes
+
+# Exposes this device to Home Assistant as a Remote entity via the ir_rf_proxy
+# integration. HA handles code learning, storage, and playback — no codes need
+# to be hardcoded here. See: https://www.home-assistant.io/integrations/remote/
+infrared:
+  - platform: ir_rf_proxy
+    name: "IR Transmitter"
+    id: ir_proxy_transmitter
+    remote_transmitter_id: ir_transmitter
+
+  - platform: ir_rf_proxy
+    name: "IR Receiver"
+    id: ir_proxy_receiver
+    receiver_frequency: 38kHz
+    remote_receiver_id: ir_receiver
+
+
+# -----------------------------------------------------------------------------
+# Status Indicator
+# -----------------------------------------------------------------------------
+
+# Using the light platform instead of status_led exposes the LED as a HA entity,
+# allowing it to be toggled from the HA UI or automations.
+light:
+  - platform: status_led
+    name: "Status LED"
+    id: status_led_light
+    disabled_by_default: true
+    pin:
+      number: GPIO13
+      inverted: true                          # LED is active-low on this hardware
+
+
+# -----------------------------------------------------------------------------
+# Sensors & Diagnostics
+# -----------------------------------------------------------------------------
+logger:
+  level: ${log_level}
+  baud_rate: 0                                # Disables serial logging output to free UART
+
+binary_sensor:
+  - platform: status
+    name: "Status"
+    icon: mdi:check-network-outline
+    entity_category: diagnostic
+
+  - platform: gpio
+    pin:
+      number: GPIO0
+      mode: INPUT_PULLUP
+      inverted: true
+    id: physical_button
+    name: "Physical Button"
+    disabled_by_default: true
+    on_multi_click:
+      # Long press: factory reset. Short press actions can be added in device-specific files.
+      - timing:
+          - ON for at least 4s
+        then:
+          - button.press: Reset
+
+sensor:
+  # Uptime reported as a timestamp — HA displays time-since-boot automatically
+  - platform: uptime
+    name: "Uptime"
+    type: timestamp
+    entity_category: diagnostic
+
+  - platform: wifi_signal
+    name: "WiFi Signal dB"
+    id: wifi_signal_db
+    update_interval: 60s
+    entity_category: diagnostic
+
+  # Converts dBm to a 0–100% scale for easier reading in dashboards
+  - platform: copy
+    source_id: wifi_signal_db
+    name: "WiFi Signal Percent"
+    filters:
+      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
+    unit_of_measurement: "%"
+    entity_category: diagnostic
+    device_class: ""
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+      icon: mdi:ip-network
+      entity_category: diagnostic
+    ssid:
+      name: "Connected SSID"
+      icon: mdi:wifi-strength-2
+      entity_category: diagnostic
+    mac_address:
+      name: "Mac Address"
+      icon: mdi:network-pos
+      entity_category: diagnostic
+
+  # Populated once on first NTP sync; blank until then
+  - platform: template
+    name: "Last Restart"
+    id: device_last_restart
+    icon: mdi:clock
+    entity_category: diagnostic
+
+
+# -----------------------------------------------------------------------------
+# Device Management
+# -----------------------------------------------------------------------------
+button:
+  - platform: restart
+    name: "Restart"
+    entity_category: config
+
+  - platform: factory_reset
+    name: "Factory Reset"
+    id: Reset
+    entity_category: config
+
+  - platform: safe_mode
+    name: "Safe Mode"
+    internal: false
+    entity_category: config
+
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: "${timezone}"
+    update_interval: ${sntp_update_interval}
+    servers:
+      - "${sntp_server_1}"
+      - "${sntp_server_2}"
+      - "${sntp_server_3}"
+    on_time_sync:
+      then:
+        # Record the wall-clock time of the last reboot. Only written once
+        # (when the sensor is still blank) so it reflects boot time, not sync time.
+        - if:
+            condition:
+              lambda: 'return id(device_last_restart).state == "";'
+            then:
+              - text_sensor.template.publish:
+                  id: device_last_restart
+                  state: !lambda 'return id(sntp_time).now().strftime("%a %d %b %Y - %I:%M:%S %p");'
