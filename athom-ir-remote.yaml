@@ -119,7 +119,6 @@ remote_transmitter:
   pin:
     number: GPIO4
   carrier_duty_percent: 50%                   # Standard 50% duty cycle for 38kHz IR carrier
-  non_blocking: true                          # IR TX runs without stalling the main loop
 
 # Receives and decodes incoming IR signals. dump: all logs every received code
 # regardless of protocol — useful during manual code capture sessions.
