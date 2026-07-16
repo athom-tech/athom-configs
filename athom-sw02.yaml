@@ -10,7 +10,7 @@ substitutions:
   # Project Name
   project_name: "China Athom Technology.2Gang Switch"
   # Projection version denotes the release version of the yaml file, allowing checking of deployed vs latest version
-  project_version: "v1.1.4"
+  project_version: "v1.1.5"
   # Restore the relay (GPO switch) upon reboot to state:
   light1_restore_mode: RESTORE_DEFAULT_OFF
   light2_restore_mode: RESTORE_DEFAULT_OFF
@@ -37,7 +37,7 @@ esphome:
   comment: "${device_description}"
   area: "${room}"
   name_add_mac_suffix: true
-  min_version: 2024.6.0
+  min_version: 2026.6.0
   project:
     name: "${project_name}"
     version: "${project_version}"
@@ -81,6 +81,23 @@ api:
 
 ota:
   - platform: esphome
+  # Enables OTA firmware flashing from a URL (used by the update component below)
+  - platform: http_request
+
+# Required by the ota http_request platform and the update component.
+# verify_ssl: false skips TLS cert validation to reduce heap/RAM pressure during
+# the download; the manifest's MD5 still verifies firmware integrity before flashing.
+http_request:
+  verify_ssl: false
+
+update:
+  # Managed updates via HTTP request: periodically checks the published manifest
+  # and exposes a "Firmware Update" entity, pointing at this device's GitHub Pages
+  # manifest. Pages URLs avoid the redirect/buffer issues of Release download URLs.
+  - platform: http_request
+    name: "Firmware Update"
+    source: https://athom-tech.github.io/athom-configs/firmware/athom-sw02.manifest.json
+    # update_interval defaults to 6h (how often it checks, not installs)
 
 logger:
   level: ${log_level}

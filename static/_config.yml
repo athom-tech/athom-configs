@@ -1,4 +1,3 @@
-# CHANGEME: Set these variable to your liking
-title: Athom Technology ESPHome Project
-description: Powered by ESPHome and ESP Web Tools
+title: Athom ESPHome Firmware
+description: ESPHome configurations and pre-built firmware maintained by Athom Technology for supported Athom devices.
 theme: jekyll-theme-slate

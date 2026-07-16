@@ -34,7 +34,7 @@ substitutions:
   room: ""                                    # Links device to a HA Area (e.g. "Lounge Room")
   device_description: "Athom IR Remote Controller"
   project_name: "China Athom Technology.Athom IR Remote"
-  project_version: "v1.0.0"
+  project_version: "v1.0.1"
   timezone: ""                                # Unix tz format e.g. "Australia/Sydney". Empty = UTC
   sntp_update_interval: "6h"
   sntp_server_1: "0.pool.ntp.org"
@@ -84,7 +84,24 @@ api:
   reboot_timeout: 0s                          # Disables automatic reboot when HA is unreachable
 
 ota:
-  - platform: esphome                         # Over-the-air firmware updates
+  - platform: esphome
+  # Enables OTA firmware flashing from a URL (used by the update component below)
+  - platform: http_request
+
+# Required by the ota http_request platform and the update component.
+# verify_ssl: false skips TLS cert validation to reduce heap/RAM pressure during
+# the download; the manifest's MD5 still verifies firmware integrity before flashing.
+http_request:
+  verify_ssl: false
+
+update:
+  # Managed updates via HTTP request: periodically checks the published manifest
+  # and exposes a "Firmware Update" entity, pointing at this device's GitHub Pages
+  # manifest. Pages URLs avoid the redirect/buffer issues of Release download URLs.
+  - platform: http_request
+    name: "Firmware Update"
+    source: https://athom-tech.github.io/athom-configs/firmware/athom-ir-remote.manifest.json
+    # update_interval defaults to 6h (how often it checks, not installs)
 
 wifi:
   ap: {}                                      # Fallback access point if Wi-Fi credentials are missing or wrong

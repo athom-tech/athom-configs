@@ -9,52 +9,56 @@ on:
     - cron: '0 0 * * *'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
+  discover:
+    name: Discover ESPHome YAML files
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.files.outputs.matrix }}
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+
+      - name: Discover root-level YAML files
+        id: files
+        run: |
+          set -euo pipefail
+
+          mapfile -t files < <(find . -maxdepth 1 -type f -name '*.yaml' -exec basename {} .yaml \; | sort)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No root-level ESPHome YAML files found." >&2
+            exit 1
+          fi
+
+          printf '%s\n' "${files[@]}"
+          printf 'matrix=%s\n' "$(printf '%s\n' "${files[@]}" | jq -R -s -c 'split("\n")[:-1]')" >> "${GITHUB_OUTPUT}"
+
   ci:
     name: Building ${{ matrix.file }} / ${{ matrix.esphome-version }}
     runs-on: ubuntu-latest
+    needs:
+      - discover
     strategy:
       fail-fast: false
       max-parallel: 3
       matrix:
-        #### Modify below here to match your project ####
-        file:
-          - athom-cb02
-          - athom-garage-door
-          - athom-mini-switch
-          - athom-presence-sensor
-          - athom-relay-board-x1
-          - athom-relay-board-x2
-          - athom-relay-board-x4
-          - athom-relay-board-x8
-          - athom-rgb-light
-          - athom-rgbct-light
-          - athom-rgbw-light
-          - athom-rgbww-light
-          - athom-smart-plug-v2
-          - athom-smart-plug
-          - athom-sw01-v2
-          - athom-sw01
-          - athom-sw02-v2
-          - athom-sw02
-          - athom-sw03
-          - athom-sw04
-          - athom-wall-outlet
-          - athom-without-relay-plug
-        #### Modify above here to match your project ####
-
+        file: ${{ fromJson(needs.discover.outputs.matrix) }}
         esphome-version:
           - stable
           - beta
           - dev
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
+
       - name: ESPHome ${{ matrix.esphome-version }}
-        uses: esphome/build-action@v7
+        uses: esphome/build-action@v7.3.0
         with:
           yaml-file: ${{ matrix.file }}.yaml
           version: ${{ matrix.esphome-version }}

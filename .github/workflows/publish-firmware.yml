@@ -1,53 +1,420 @@
 name: Publish Firmware
 
 on:
-  release:
-    types: [published]
+  schedule:
+    - cron: '27 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      esphome_version:
+        description: 'ESPHome version to build. Leave empty to use the latest stable release.'
+        required: false
+        type: string
+      force:
+        description: 'Recreate the GitHub release if it already exists.'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.inputs.esphome_version || 'latest-stable' }}
+  cancel-in-progress: false
+
 jobs:
+  prepare:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      esphome-version: ${{ steps.release.outputs.esphome-version }}
+      release-tag: ${{ steps.release.outputs.release-tag }}
+      release-url: ${{ steps.release.outputs.release-url }}
+      release-notes: ${{ steps.release.outputs.release-notes }}
+      should-build: ${{ steps.release.outputs.should-build }}
+      matrix: ${{ steps.files.outputs.matrix }}
+      files: ${{ steps.files.outputs.files }}
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+
+      - name: Resolve ESPHome release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          INPUT_VERSION: ${{ inputs.esphome_version }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "${INPUT_VERSION}" ]; then
+            esphome_version="${INPUT_VERSION#v}"
+          else
+            esphome_version="$(
+              gh api repos/esphome/esphome/releases/latest --jq .tag_name
+            )"
+            esphome_version="${esphome_version#v}"
+          fi
+
+          if [ -z "${esphome_version}" ] || [ "${esphome_version}" = "null" ]; then
+            echo "Unable to resolve an ESPHome release version." >&2
+            exit 1
+          fi
+
+          release_tag="esphome-${esphome_version}"
+          release_url="https://github.com/${GH_REPO}/releases/tag/${release_tag}"
+          release_notes="Firmware built automatically from ESPHome ${esphome_version} stable release."
+          should_build="true"
+
+          if gh release view "${release_tag}" >/dev/null 2>&1; then
+            if [ "${FORCE}" = "true" ]; then
+              echo "Release ${release_tag} already exists and will be replaced after a successful build."
+            else
+              should_build="false"
+            fi
+          fi
+
+          {
+            echo "esphome-version=${esphome_version}"
+            echo "release-tag=${release_tag}"
+            echo "release-url=${release_url}"
+            echo "release-notes=${release_notes}"
+            echo "should-build=${should_build}"
+          } >> "${GITHUB_OUTPUT}"
+
+          if [ "${should_build}" = "true" ]; then
+            echo "Building firmware with ESPHome ${esphome_version}."
+          else
+            echo "Release ${release_tag} already exists. Nothing to build."
+          fi
+
+      - name: Discover ESPHome YAML files
+        id: files
+        run: |
+          set -euo pipefail
+
+          mapfile -t files < <(find . -maxdepth 1 -type f -name '*.yaml' -exec basename {} \; | sort)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No root-level ESPHome YAML files found." >&2
+            exit 1
+          fi
+
+          json="$(printf '%s\n' "${files[@]}" | jq -R -s -c 'split("\n")[:-1]')"
+          names="$(printf '%s\n' "${files[@]}" | sed 's/\.yaml$//' | jq -R -s -c 'split("\n")[:-1]')"
+
+          {
+            echo "matrix=${json}"
+            echo "files=${names}"
+          } >> "${GITHUB_OUTPUT}"
+
   build-firmware:
-    name: Build Firmware
-    uses: esphome/workflows/.github/workflows/build.yml@2025.8.1
-    with:
-      #### Modify below here to match your project ####
-      files: |
-        athom-cb02.yaml
-        athom-garage-door.yaml
-        athom-mini-switch.yaml
-        athom-presence-sensor.yaml
-        athom-relay-board-x1.yaml
-        athom-relay-board-x2.yaml
-        athom-relay-board-x4.yaml
-        athom-relay-board-x8.yaml
-        athom-rgb-light.yaml
-        athom-rgbct-light.yaml
-        athom-rgbw-light.yaml
-        athom-rgbww-light.yaml
-        athom-smart-plug-v2.yaml
-        athom-smart-plug.yaml
-        athom-sw01-v2.yaml
-        athom-sw01.yaml
-        athom-sw02-v2.yaml
-        athom-sw02.yaml
-        athom-sw03.yaml
-        athom-sw04.yaml
-        athom-wall-outlet.yaml
-        athom-without-relay-plug.yaml
-      esphome-version: 2025.8.0
-      combined-name: project-template
-      #### Modify above here to match your project ####
-
-      release-summary: ${{ github.event.release.body }}
-      release-url: ${{ github.event.release.html_url }}
-      release-version: ${{ github.event.release.tag_name }}
-
-  upload-to-release:
-    name: Upload to Release
-    uses: esphome/workflows/.github/workflows/upload-to-gh-release.yml@2025.8.1
+    name: Build ${{ matrix.file }}
+    runs-on: ubuntu-latest
     needs:
+      - prepare
+    if: needs.prepare.outputs.should-build == 'true'
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        file: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+
+      - name: ESPHome ${{ needs.prepare.outputs.esphome-version }}
+        id: build
+        continue-on-error: true
+        uses: esphome/build-action@v7
+        with:
+          yaml-file: ${{ matrix.file }}
+          version: ${{ needs.prepare.outputs.esphome-version }}
+          complete-manifest: true
+          release-summary: ${{ needs.prepare.outputs.release-notes }}
+          release-url: ${{ needs.prepare.outputs.release-url }}
+
+      - name: Collect firmware files
+        run: |
+          set -euo pipefail
+
+          name="${{ matrix.file }}"
+          name="${name%.yaml}"
+          mkdir -p "firmware/${name}"
+
+          build_name="${{ steps.build.outputs.name }}"
+          build_dir=""
+
+          if [ -n "${build_name}" ] && [ -d "${build_name}" ]; then
+            build_dir="${build_name}"
+          else
+            mapfile -t candidates < <(find . -mindepth 2 -maxdepth 2 -name '*.factory.bin' -exec dirname {} \; | sed 's#^\./##' | sort -u)
+            if [ "${#candidates[@]}" -eq 1 ]; then
+              build_dir="${candidates[0]}"
+              build_name="$(basename "${build_dir}")"
+            fi
+          fi
+
+          if [ -z "${build_dir}" ] || [ ! -d "${build_dir}" ]; then
+            echo "Expected ESPHome build output directory was not found." >&2
+            find . -maxdepth 3 -type f \( -name '*.bin' -o -name 'manifest.json' \) -print >&2
+            exit 1
+          fi
+
+          cp "${build_dir}/"*.bin "firmware/${name}/"
+
+          factory_bin="$(find "firmware/${name}" -maxdepth 1 -name '*.factory.bin' -print -quit)"
+          ota_bin="$(find "firmware/${name}" -maxdepth 1 -name '*.ota.bin' -print -quit)"
+
+          if [ -z "${factory_bin}" ] || [ -z "${ota_bin}" ]; then
+            echo "Expected factory and OTA binaries in '${build_dir}'." >&2
+            exit 1
+          fi
+
+          if [ ! -f "${build_dir}/manifest.json" ]; then
+            case "${build_name}" in
+              *-esp32) chip_family="ESP32" ;;
+              *-esp32s2) chip_family="ESP32-S2" ;;
+              *-esp32s3) chip_family="ESP32-S3" ;;
+              *-esp32c3) chip_family="ESP32-C3" ;;
+              *-esp32c5) chip_family="ESP32-C5" ;;
+              *-esp32c6) chip_family="ESP32-C6" ;;
+              *-esp8266) chip_family="ESP8266" ;;
+              *) echo "Cannot infer chip family from build name '${build_name}'." >&2; exit 1 ;;
+            esac
+
+            jq -n --arg chipFamily "${chip_family}" \
+                  --arg name "${name}" \
+                  --arg version "${{ needs.prepare.outputs.esphome-version }}" \
+                  --arg otaPath "$(basename "${ota_bin}")" \
+                  --arg otaMd5 "$(md5sum "${ota_bin}" | awk '{print $1}')" \
+                  --arg otaSha256 "$(sha256sum "${ota_bin}" | awk '{print $1}')" \
+                  --arg factoryPath "$(basename "${factory_bin}")" \
+                  --arg factoryMd5 "$(md5sum "${factory_bin}" | awk '{print $1}')" \
+                  --arg factorySha256 "$(sha256sum "${factory_bin}" | awk '{print $1}')" \
+                  '{
+                    name: $name,
+                    version: $version,
+                    home_assistant_domain: "esphome",
+                    new_install_prompt_erase: false,
+                    builds: [
+                      {
+                        chipFamily: $chipFamily,
+                        ota: {
+                          path: $otaPath,
+                          md5: $otaMd5,
+                          sha256: $otaSha256
+                        },
+                        parts: [
+                          {
+                            path: $factoryPath,
+                            offset: 0,
+                            md5: $factoryMd5,
+                            sha256: $factorySha256
+                          }
+                        ]
+                      }
+                    ]
+                  }' > "firmware/${name}/manifest.json"
+          else
+            cp "${build_dir}/manifest.json" "firmware/${name}/manifest.json"
+          fi
+
+          find "firmware/${name}" -maxdepth 1 -type f -print | sort
+          test -f "firmware/${name}/manifest.json"
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: firmware-${{ matrix.file }}
+          path: firmware/
+          if-no-files-found: error
+          retention-days: 1
+
+  publish-release:
+    name: Publish Release
+    runs-on: ubuntu-latest
+    needs:
+      - prepare
       - build-firmware
-    with:
-      version: ${{ github.event.release.tag_name }}
+    if: needs.prepare.outputs.should-build == 'true'
+    steps:
+      - name: Download firmware artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: downloaded-artifacts
+          pattern: firmware-*
+          merge-multiple: true
+
+      - name: Prepare release assets
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.release-tag }}
+          ESPHOME_VERSION: ${{ needs.prepare.outputs.esphome-version }}
+          RELEASE_NOTES: ${{ needs.prepare.outputs.release-notes }}
+          FILES_JSON: ${{ needs.prepare.outputs.files }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p release-assets firmware
+          if [ -d downloaded-artifacts/firmware ]; then
+            cp -R downloaded-artifacts/firmware/. firmware/
+          else
+            cp -R downloaded-artifacts/. firmware/
+          fi
+
+          jq -n --arg version "${ESPHOME_VERSION}" \
+                --argjson devices "${FILES_JSON}" \
+                '{
+                  version: $version,
+                  generated_at: (now | todateiso8601),
+                  devices: ($devices | map({
+                    id: .,
+                    name: (. | split("-") | map(ascii_upcase[0:1] + .[1:]) | join(" ")),
+                    yaml: (. + ".yaml"),
+                    manifest: ("firmware/" + . + ".manifest.json")
+                  }))
+                }' > release-assets/devices.json
+
+          jq -n --arg name "Athom ESP8285 Device" \
+                --arg version "${ESPHOME_VERSION}" \
+                --arg homeAssistantDomain "esphome" \
+                '{name: $name, version: $version, home_assistant_domain: $homeAssistantDomain, new_install_prompt_erase: false, builds: []}' \
+                > release-assets/Athom-ESP8285-Device.manifest.json
+
+          shopt -s nullglob
+          mapfile -t devices < <(jq -r '.[]' <<< "${FILES_JSON}")
+          for device in "${devices[@]}"; do
+            device_dir="firmware/${device}"
+            manifest_path="${device_dir}/manifest.json"
+
+            if [ ! -d "${device_dir}" ]; then
+              echo "Expected firmware directory '${device_dir}'." >&2
+              exit 1
+            fi
+
+            if [ ! -f "${manifest_path}" ]; then
+              echo "Expected manifest '${manifest_path}'." >&2
+              exit 1
+            fi
+
+            bins=("${device_dir}/"*.bin)
+            factory_bins=("${device_dir}/"*.factory.bin)
+            ota_bins=("${device_dir}/"*.ota.bin)
+
+            if [ "${#bins[@]}" -eq 0 ]; then
+              echo "Expected at least one binary in '${device_dir}'." >&2
+              exit 1
+            fi
+
+            if [ "${#factory_bins[@]}" -ne 1 ]; then
+              echo "Expected one factory binary in '${device_dir}', found ${#factory_bins[@]}." >&2
+              exit 1
+            fi
+
+            if [ "${#ota_bins[@]}" -ne 1 ]; then
+              echo "Expected one OTA binary in '${device_dir}', found ${#ota_bins[@]}." >&2
+              exit 1
+            fi
+
+            device_manifest="$(mktemp)"
+            cp "${manifest_path}" "${device_manifest}"
+
+            for binary in "${bins[@]}"; do
+              binary_name="$(basename "${binary}")"
+              asset_name="${device}-${binary_name}"
+
+              if [ -e "release-assets/${asset_name}" ]; then
+                echo "Release asset '${asset_name}' already exists." >&2
+                exit 1
+              fi
+
+              cp "${binary}" "release-assets/${asset_name}"
+
+              tmp_manifest="$(mktemp)"
+              jq --arg from "${binary_name}" \
+                 --arg to "${asset_name}" \
+                 'walk(if type == "object" and has("path") and (.path | split("/")[-1]) == $from then .path = $to else . end)' \
+                 "${device_manifest}" > "${tmp_manifest}"
+              mv "${tmp_manifest}" "${device_manifest}"
+            done
+
+            cp "${device_manifest}" "release-assets/${device}.manifest.json"
+            rm -f "${device_manifest}"
+
+            tmp_manifest="$(mktemp)"
+            jq --slurpfile manifest "release-assets/${device}.manifest.json" \
+               '.builds += ($manifest[0].builds // [$manifest[0]])' \
+               release-assets/Athom-ESP8285-Device.manifest.json > "${tmp_manifest}"
+            mv "${tmp_manifest}" release-assets/Athom-ESP8285-Device.manifest.json
+          done
+
+          cd release-assets
+          for binary in *.bin; do
+            md5sum "${binary}" > "${binary}.md5"
+            sha256sum "${binary}" > "${binary}.sha256"
+          done
+
+          expected_count="$(jq 'length' <<< "${FILES_JSON}")"
+          manifest_count="$(find . -maxdepth 1 -name '*.manifest.json' ! -name 'Athom-ESP8285-Device.manifest.json' | wc -l)"
+          factory_count="$(find . -maxdepth 1 -name '*.factory.bin' | wc -l)"
+          ota_count="$(find . -maxdepth 1 -name '*.ota.bin' | wc -l)"
+
+          if [ "${manifest_count}" -ne "${expected_count}" ]; then
+            echo "Expected ${expected_count} device manifests, found ${manifest_count}." >&2
+            exit 1
+          fi
+
+          if [ "${factory_count}" -ne "${expected_count}" ]; then
+            echo "Expected ${expected_count} factory binaries, found ${factory_count}." >&2
+            exit 1
+          fi
+
+          if [ "${ota_count}" -ne "${expected_count}" ]; then
+            echo "Expected ${expected_count} OTA binaries, found ${ota_count}." >&2
+            exit 1
+          fi
+
+          for manifest in *.manifest.json; do
+            while IFS= read -r asset_path; do
+              if [ -z "${asset_path}" ]; then
+                continue
+              fi
+
+              case "${asset_path}" in
+                http://*|https://*) continue ;;
+              esac
+
+              if [ ! -f "${asset_path}" ]; then
+                echo "Manifest '${manifest}' references missing asset '${asset_path}'." >&2
+                exit 1
+              fi
+            done < <(jq -r '[.builds[]? | (.ota.path? // empty), (.parts[]?.path? // empty)] | .[]' "${manifest}")
+          done
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          FORCE: ${{ inputs.force }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.release-tag }}
+          ESPHOME_VERSION: ${{ needs.prepare.outputs.esphome-version }}
+          RELEASE_NOTES: ${{ needs.prepare.outputs.release-notes }}
+        run: |
+          set -euo pipefail
+
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            if [ "${FORCE}" = "true" ]; then
+              gh release delete "${RELEASE_TAG}" --yes --cleanup-tag
+            else
+              echo "Release ${RELEASE_TAG} already exists." >&2
+              exit 1
+            fi
+          fi
+
+          gh release create "${RELEASE_TAG}" release-assets/* \
+            --title "ESPHome ${ESPHOME_VERSION} firmware" \
+            --notes "${RELEASE_NOTES}"

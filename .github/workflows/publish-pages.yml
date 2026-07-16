@@ -22,13 +22,17 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     name: Build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - run: mkdir -p output/firmware
 
@@ -39,14 +43,91 @@ jobs:
           destination: ./output
 
       - name: Fetch firmware files
-        uses: robinraju/release-downloader@v1
-        with:
-          latest: true
-          fileName: '*'
-          out-file-path: output/firmware
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p output/firmware
+
+          releases="$(
+            gh release list \
+              --exclude-drafts \
+              --exclude-pre-releases \
+              --limit 100 \
+              --json tagName,isLatest,publishedAt \
+              --jq '[.[] | select(.tagName | startswith("esphome-"))] | sort_by(.publishedAt) | reverse'
+          )"
+
+          if [ "$(jq 'length' <<< "${releases}")" -eq 0 ]; then
+            echo "No esphome-* firmware releases are available; refusing to publish an installer without firmware assets." >&2
+            exit 1
+          fi
+
+          latest_tag="$(jq -r 'map(select(.isLatest == true))[0].tagName // .[0].tagName' <<< "${releases}")"
+
+          jq -n --arg latest "${latest_tag#esphome-}" '{latest: $latest, versions: []}' \
+            > output/firmware/versions.json
+
+          jq -r '.[].tagName' <<< "${releases}" | while IFS= read -r tag; do
+            version="${tag#esphome-}"
+            target="output/firmware/${version}"
+            mkdir -p "${target}"
+            gh release download "${tag}" --dir "${target}" --pattern '*'
+
+            if [ ! -f "${target}/devices.json" ]; then
+              echo "Release ${tag} does not include devices.json." >&2
+              exit 1
+            fi
+
+            jq -e '.devices | type == "array" and length > 0' "${target}/devices.json" >/dev/null
+
+            while IFS= read -r manifest; do
+              manifest_file="${target}/${manifest#firmware/}"
+              if [ ! -f "${manifest_file}" ]; then
+                echo "Release ${tag} is missing manifest '${manifest_file}'." >&2
+                exit 1
+              fi
+
+              while IFS= read -r asset_path; do
+                if [ -z "${asset_path}" ]; then
+                  continue
+                fi
+
+                case "${asset_path}" in
+                  http://*|https://*) continue ;;
+                esac
+
+                if [ ! -f "${target}/${asset_path}" ]; then
+                  echo "Manifest '${manifest_file}' references missing asset '${target}/${asset_path}'." >&2
+                  exit 1
+                fi
+              done < <(jq -r '[.builds[]? | (.ota.path? // empty), (.parts[]?.path? // empty)] | .[]' "${manifest_file}")
+            done < <(jq -r '.devices[].manifest' "${target}/devices.json")
+
+            jq --arg version "${version}" \
+               --arg tag "${tag}" \
+               --slurpfile devices "${target}/devices.json" \
+               '.versions += [{
+                 version: $version,
+                 tag: $tag,
+                 devices: ($devices[0].devices | map(.manifest = ("firmware/" + $version + "/" + (.manifest | sub("^firmware/"; "")))))
+               }]' output/firmware/versions.json > output/firmware/versions.tmp
+            mv output/firmware/versions.tmp output/firmware/versions.json
+          done
+
+          latest_version="${latest_tag#esphome-}"
+          latest_target="output/firmware/${latest_version}"
+          test -d "${latest_target}"
+          find output/firmware -mindepth 1 -maxdepth 1 -type f ! -name versions.json -delete
+          cp "${latest_target}/"* output/firmware/
+
+          test -f output/firmware/devices.json
+          test -f output/firmware/Athom-ESP8285-Device.manifest.json
+          jq -e '.latest and (.versions | length > 0)' output/firmware/versions.json >/dev/null
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: output
           retention-days: 1
@@ -65,8 +146,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Setup Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
