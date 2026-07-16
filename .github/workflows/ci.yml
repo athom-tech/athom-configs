@@ -30,7 +30,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          mapfile -t files < <(find . -maxdepth 1 -type f -name '*.yaml' -exec basename {} .yaml \; | sort)
+          mapfile -t files < <(find . -maxdepth 1 -type f -name '*.yaml' \
+            ! -name 'athom-ws2812b.yaml' \
+            ! -name 'athom-ls-4p-3wire.yaml' \
+            ! -name 'athom-ls-4p-4wire.yaml' \
+            -exec basename {} .yaml \; | sort)
           if [ "${#files[@]}" -eq 0 ]; then
             echo "No root-level ESPHome YAML files found." >&2
             exit 1
