@@ -5,7 +5,7 @@ substitutions:
   room: ""
   device_description: "athom wall outlet"
   project_name: "China Athom Technology.Athom Wall Outlet"
-  project_version: "v1.1.6"
+  project_version: "v1.1.7"
   sensor_update_interval: "10s"
   relay_restore_mode: RESTORE_DEFAULT_OFF
   # Current Limit in Amps. AU Plug = 10. IL, BR, EU, UK, US Plug = 16.
@@ -23,7 +23,7 @@ substitutions:
   # Enables faster network connections, with last connected SSID being connected to and no full scan for SSID being undertaken
   wifi_fast_connect: "false"
   # Define logging level: NONE, ERROR, WARN, INFO, DEBUG (Default), VERBOSE, VERY_VERBOSE
-  log_level: "INFO"
+  log_level: "DEBUG"
   # Enable or disable the use of IPv6 networking on the device
   ipv6_enable: "false"
   # Hide the ENERGY sensor that shows kWh consumed, but with no time period associated with it. Resets when device restarted and reflashed.
@@ -332,7 +332,14 @@ light:
       inverted: true
       number: GPIO13
 
+debug:
+  update_interval: 5s
+
 text_sensor:
+  - platform: debug
+    reset_reason:
+      name: "Reset Reason"
+
   - platform: wifi_info
     ip_address:
       name: "IP Address"

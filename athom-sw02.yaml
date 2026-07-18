@@ -10,7 +10,7 @@ substitutions:
   # Project Name
   project_name: "China Athom Technology.2Gang Switch"
   # Projection version denotes the release version of the yaml file, allowing checking of deployed vs latest version
-  project_version: "v1.1.5"
+  project_version: "v1.1.6"
   # Restore the relay (GPO switch) upon reboot to state:
   light1_restore_mode: RESTORE_DEFAULT_OFF
   light2_restore_mode: RESTORE_DEFAULT_OFF
@@ -280,7 +280,14 @@ light:
     output: button_led2
     default_transition_length: 500ms
 
+debug:
+  update_interval: 5s
+
 text_sensor:
+  - platform: debug
+    reset_reason:
+      name: "Reset Reason"
+
   - platform: wifi_info
     ip_address:
       name: "IP Address"

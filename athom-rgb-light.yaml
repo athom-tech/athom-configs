@@ -10,7 +10,7 @@ substitutions:
   # Project Name
   project_name: "China Athom Technology.Athom RGB Controller"
   # Projection version denotes the release version of the yaml file, allowing checking of deployed vs latest version
-  project_version: "v1.1.5"
+  project_version: "v1.1.6"
    # Restore the light (GPO switch) upon reboot to state:
   light_restore_mode: RESTORE_DEFAULT_OFF
   # Define a domain for this device to use. i.e. iot.home.lan (so device will appear as athom-smart-plug-v2.iot.home.lan in DNS/DHCP logs)
@@ -174,7 +174,14 @@ light:
     blue: blue_output
     id: led
 
+debug:
+  update_interval: 5s
+
 text_sensor:
+  - platform: debug
+    reset_reason:
+      name: "Reset Reason"
+
   - platform: wifi_info
     ip_address:
       name: "IP Address"

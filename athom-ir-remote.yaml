@@ -34,14 +34,14 @@ substitutions:
   room: ""                                    # Links device to a HA Area (e.g. "Lounge Room")
   device_description: "Athom IR Remote Controller"
   project_name: "China Athom Technology.Athom IR Remote"
-  project_version: "v1.0.1"
+  project_version: "v1.0.2"
   timezone: ""                                # Unix tz format e.g. "Australia/Sydney". Empty = UTC
   sntp_update_interval: "6h"
   sntp_server_1: "0.pool.ntp.org"
   sntp_server_2: "1.pool.ntp.org"
   sntp_server_3: "2.pool.ntp.org"
   wifi_fast_connect: "false"                  # true = skip SSID scan, reconnect to last AP faster
-  log_level: "INFO"                           # NONE | ERROR | WARN | INFO | DEBUG | VERBOSE
+  log_level: "DEBUG"                           # NONE | ERROR | WARN | INFO | DEBUG | VERBOSE
   ipv6_enable: "false"
   dns_domain: ".local"                        # Appended to hostname in DNS/DHCP (e.g. "athom-ir-remote.local")
 
@@ -230,7 +230,14 @@ sensor:
     entity_category: diagnostic
     device_class: ""
 
+debug:
+  update_interval: 5s
+
 text_sensor:
+  - platform: debug
+    reset_reason:
+      name: "Reset Reason"
+
   - platform: wifi_info
     ip_address:
       name: "IP Address"

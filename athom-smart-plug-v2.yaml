@@ -1,11 +1,11 @@
 substitutions:
   name: "athom-smart-plug-v2"
-  friendly_name: "Smart Plug V2"
+  friendly_name: "Athom Plug V2"
   # Allows ESP device to be automatically lined to an 'Area' in Home Assistant. Typically used for areas such as 'Lounge Room', 'Kitchen' etc
   room: ""
-  device_description: "athom smart plug v2"
+  device_description: "athom esp8285 power monitoring smart plug v2"
   project_name: "China Athom Technology.Athom Plug V2"
-  project_version: "v2.0.9"
+  project_version: "v2.1.0"
   sensor_update_interval: "10s"
   relay_restore_mode: RESTORE_DEFAULT_ON
   # Current Limit in Amps. AU Plug = 10. IL, BR, EU, UK, US Plug = 16.
@@ -362,7 +362,14 @@ light:
       inverted: true
       number: GPIO13
 
+debug:
+  update_interval: 5s
+
 text_sensor:
+  - platform: debug
+    reset_reason:
+      name: "Reset Reason"
+
   - platform: wifi_info
     ip_address:
       name: "IP Address"
