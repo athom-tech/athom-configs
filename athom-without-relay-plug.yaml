@@ -200,6 +200,8 @@ sensor:
     restore: true
     power_id: power_sensor
     unit_of_measurement: kWh
+    device_class: "energy"
+    state_class: "total_increasing"
     icon: mdi:hours-24
     accuracy_decimals: 3
     filters:
