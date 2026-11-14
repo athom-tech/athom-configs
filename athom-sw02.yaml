@@ -14,6 +14,8 @@ substitutions:
   # Restore the relay (GPO switch) upon reboot to state:
   light1_restore_mode: RESTORE_DEFAULT_OFF
   light2_restore_mode: RESTORE_DEFAULT_OFF
+  # Set brightness of the flashing Status LED:
+  status_led_brightness: 5%
   # Define a domain for this device to use. i.e. iot.home.lan (so device will appear as athom-smart-plug-v2.iot.home.lan in DNS/DHCP logs)
   dns_domain: ".local"
   # Set timezone of the smart plug. Useful if the plug is in a location different to the HA server. Can be entered in unix Country/Area format (i.e. "Australia/Sydney")
@@ -220,13 +222,34 @@ output:
     inverted: true
     id: button_led2
 
+  - platform: esp8266_pwm
+    pin:
+        inverted: true
+        number: GPIO0
+    id: my_status_led
+    
+  - platform: template
+    id: status_output
+    type: binary
+    write_action:
+      - if:
+          condition:
+            lambda: return state > 0;
+          then:
+            - output.set_level:
+                id: my_status_led
+                level: ${status_led_brightness}
+          else:
+            - output.turn_off:
+                id: my_status_led
+                
 light:
   - platform: status_led
     name: "Status LED"
+    id: switch_status_indicator
+    icon: mdi:lightbulb-outline
     disabled_by_default: true
-    pin:
-      number: GPIO0
-      inverted: true
+    output: status_output
 
   # Relays
   - platform: binary
